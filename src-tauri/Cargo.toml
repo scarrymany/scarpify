@@ -1,0 +1,40 @@
+[package]
+name = "scarpify"
+version = "0.1.0"
+description = "Ad-free open-source music player for YouTube Music and SoundCloud"
+authors = ["SCARPIFY contributors"]
+license = "GPL-3.0-or-later"
+repository = "https://github.com/scarrymany/scarpify"
+edition = "2021"
+
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "scarpify_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rodio = { version = "0.22", default-features = false, features = ["playback", "symphonia-mp3", "symphonia-aac", "symphonia-isomp4"] }
+rustypipe = "0.11"
+tokio = { version = "1", features = ["macros", "sync", "time"] }
+reqwest = { version = "0.12", default-features = false, features = ["default-tls", "json", "gzip"] }
+thiserror = "2"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
