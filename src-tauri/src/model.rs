@@ -22,16 +22,19 @@ pub struct Track {
     pub url: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CollectionKind {
+    #[default]
     Playlist,
     Album,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Collection {
+    /// Missing in collections saved by early builds, which were all playlists.
+    #[serde(default)]
     pub kind: CollectionKind,
     pub name: String,
     pub owner: Option<String>,

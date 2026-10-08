@@ -1,23 +1,36 @@
 <script lang="ts">
   import ListPlus from "phosphor-svelte/lib/ListPlus";
   import Clock from "phosphor-svelte/lib/Clock";
+  import Queue from "phosphor-svelte/lib/Queue";
+  import Plus from "phosphor-svelte/lib/Plus";
+  import Heart from "phosphor-svelte/lib/Heart";
+  import Trash from "phosphor-svelte/lib/Trash";
+  import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
+  import MusicNotesPlus from "phosphor-svelte/lib/MusicNotesPlus";
+  import { openUrl } from "@tauri-apps/plugin-opener";
   import Artwork from "./Artwork.svelte";
   import LikeButton from "./LikeButton.svelte";
   import PlayPauseIcon from "./PlayPauseIcon.svelte";
   import ProviderBadge from "./ProviderBadge.svelte";
   import NowPlayingBars from "./NowPlayingBars.svelte";
-  import { formatDuration, i18n } from "$lib/i18n/index.svelte";
+  import { errorMessage } from "$lib/api";
+  import { format, formatDuration, i18n } from "$lib/i18n/index.svelte";
+  import { sortable } from "$lib/sortable";
   import { library } from "$lib/state/library.svelte";
+  import { menu, type MenuItem } from "$lib/state/menu.svelte";
   import { player } from "$lib/state/player.svelte";
+  import { toasts } from "$lib/state/toasts.svelte";
   import { trackKey, type Track } from "$lib/types";
 
   interface Props {
     tracks: Track[];
     showAlbum?: boolean;
     showHeader?: boolean;
+    /** Set for the user's own playlists: rows can be removed and dragged into a new order. */
+    playlistId?: string;
   }
 
-  let { tracks, showAlbum = true, showHeader = true }: Props = $props();
+  let { tracks, showAlbum = true, showHeader = true, playlistId }: Props = $props();
 
   /** Enough rows to fill the screen in the first frame; the rest arrive in later frames. */
   const FIRST_BATCH = 40;
@@ -51,9 +64,56 @@
     }
     player.playTracks(tracks, index);
   }
+
+  async function addToNewPlaylist(track: Track) {
+    try {
+      const playlist = await library.createPlaylist();
+      await library.addTracks(playlist.id, [track]);
+    } catch (error) {
+      toasts.error(format(i18n.t.errors.generic, { error: errorMessage(error) }));
+    }
+  }
+
+  function trackActions(track: Track): MenuItem[] {
+    const t = i18n.t;
+    const liked = library.isLiked(track);
+    const playlists: MenuItem[] = [
+      { label: t.playlist.newPlaylist, icon: Plus, action: () => void addToNewPlaylist(track) },
+      ...library.userPlaylists
+        .filter((p) => p.id !== playlistId)
+        .map((p) => ({ label: p.name, action: () => void library.addTracks(p.id, [track]) })),
+    ];
+    const items: MenuItem[] = [
+      { label: t.track.addToQueue, icon: Queue, action: () => player.enqueue(track) },
+      { label: t.playlist.addTo, icon: MusicNotesPlus, submenu: playlists },
+      { label: liked ? t.track.unlike : t.track.like, icon: Heart, action: () => library.toggleLike(track) },
+    ];
+    if (playlistId) {
+      items.push({
+        label: t.playlist.removeFrom,
+        icon: Trash,
+        danger: true,
+        action: () => library.removeTrack(playlistId, track),
+      });
+    }
+    if (track.url) {
+      const url = track.url;
+      items.push({
+        label: format(t.track.openSource, { provider: t.providers[track.provider] }),
+        icon: ArrowSquareOut,
+        action: () => void openUrl(url),
+      });
+    }
+    return items;
+  }
 </script>
 
-<div class="list" class:no-album={!showAlbum} role="list">
+<div
+  class="list"
+  class:no-album={!showAlbum}
+  role="list"
+  use:sortable={{ onmove: (from, to) => playlistId && library.moveTrack(playlistId, from, to), disabled: !playlistId }}
+>
   {#if showHeader}
     <div class="row header" aria-hidden="true">
       <span class="index">#</span>
@@ -71,7 +131,9 @@
       class="row"
       class:active
       role="listitem"
+      data-sortable={playlistId ? "" : undefined}
       ondblclick={() => play(index)}
+      oncontextmenu={(event) => menu.show(event, trackActions(track))}
       onpointerenter={() => player.prefetchSoon(track)}
       onpointerleave={() => player.cancelPrefetch()}
     >
@@ -140,7 +202,9 @@
     min-height: 64px;
     padding: 0 12px;
     border-radius: var(--radius-card);
-    transition: background-color var(--fast) var(--ease);
+    transition:
+      background-color var(--fast) var(--ease),
+      transform var(--base) var(--ease);
     /* Long playlists: rows outside the viewport skip layout and paint entirely. */
     content-visibility: auto;
     contain-intrinsic-size: auto 64px;

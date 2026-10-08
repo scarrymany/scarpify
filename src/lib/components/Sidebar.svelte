@@ -4,11 +4,21 @@
   import Books from "phosphor-svelte/lib/Books";
   import Plus from "phosphor-svelte/lib/Plus";
   import Gear from "phosphor-svelte/lib/Gear";
+  import MusicNotesPlus from "phosphor-svelte/lib/MusicNotesPlus";
+  import Link from "phosphor-svelte/lib/Link";
+  import PushPin from "phosphor-svelte/lib/PushPin";
   import Artwork from "./Artwork.svelte";
+  import CollectionCover from "./CollectionCover.svelte";
   import ProviderBadge from "./ProviderBadge.svelte";
-  import { i18n } from "$lib/i18n/index.svelte";
+  import { errorMessage } from "$lib/api";
+  import { collectionActions } from "$lib/collectionActions";
+  import { format, i18n } from "$lib/i18n/index.svelte";
+  import { sortable } from "$lib/sortable";
   import { library } from "$lib/state/library.svelte";
+  import { menu } from "$lib/state/menu.svelte";
   import { nav, type Route } from "$lib/state/nav.svelte";
+  import { toasts } from "$lib/state/toasts.svelte";
+  import { ui } from "$lib/state/ui.svelte";
 
   interface Props {
     onimport: () => void;
@@ -20,6 +30,23 @@
     const current = nav.current;
     if (current.name !== route.name) return false;
     return current.name !== "collection" || current.id === (route as typeof current).id;
+  }
+
+  async function createPlaylist() {
+    try {
+      const playlist = await library.createPlaylist();
+      nav.go({ name: "collection", id: playlist.id });
+      ui.renaming = playlist.id;
+    } catch (error) {
+      toasts.error(format(i18n.t.errors.generic, { error: errorMessage(error) }));
+    }
+  }
+
+  function openAddMenu(event: MouseEvent) {
+    menu.showAt(event.currentTarget as HTMLElement, [
+      { label: i18n.t.playlist.create, icon: MusicNotesPlus, action: () => void createPlaylist() },
+      { label: i18n.t.importer.action, icon: Link, action: onimport },
+    ]);
   }
 </script>
 
@@ -39,7 +66,7 @@
   <section class="panel library">
     <header class="library-header">
       <h2><Books weight="fill" />{i18n.t.nav.library}</h2>
-      <button class="icon-button" aria-label={i18n.t.importer.action} title={i18n.t.importer.action} onclick={onimport}>
+      <button class="icon-button" aria-label={i18n.t.playlist.create} title={i18n.t.playlist.create} onclick={openAddMenu}>
         <Plus weight="bold" />
       </button>
     </header>
@@ -53,19 +80,28 @@
         </span>
       </button>
 
-      {#each library.collections as collection (collection.id)}
-        {@const route = { name: "collection", id: collection.id } as const}
-        <button class="entry" class:current={isCurrent(route)} onclick={() => nav.go(route)}>
-          <Artwork src={collection.artwork} size="48px" />
-          <span class="entry-text">
-            <span class="entry-title">{collection.name}</span>
-            <span class="entry-sub">
-              <ProviderBadge provider={collection.provider} variant="icon" />
-              {i18n.plural(i18n.t.plural.tracks, collection.tracks.length)}
+      <div class="collections" use:sortable={{ onmove: (from, to) => library.move(from, to) }}>
+        {#each library.collections as collection (collection.id)}
+          {@const route = { name: "collection", id: collection.id } as const}
+          <button
+            class="entry"
+            class:current={isCurrent(route)}
+            data-sortable
+            onclick={() => nav.go(route)}
+            oncontextmenu={(event) => menu.show(event, collectionActions(collection))}
+          >
+            <CollectionCover {collection} size="48px" />
+            <span class="entry-text">
+              <span class="entry-title">{collection.name}</span>
+              <span class="entry-sub">
+                {#if collection.pinned}<span class="pin"><PushPin weight="fill" /></span>{/if}
+                {#if collection.provider}<ProviderBadge provider={collection.provider} variant="icon" />{/if}
+                {i18n.plural(i18n.t.plural.tracks, collection.tracks.length)}
+              </span>
             </span>
-          </span>
-        </button>
-      {/each}
+          </button>
+        {/each}
+      </div>
     </div>
 
     <button class="nav-item settings" class:current={isCurrent({ name: "settings" })} onclick={() => nav.go({ name: "settings" })}>
@@ -163,6 +199,18 @@
     padding-top: 4px;
   }
 
+  .collections {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .pin {
+    display: grid;
+    color: var(--accent);
+    font-size: 13px;
+  }
+
   .entry {
     display: flex;
     align-items: center;
@@ -170,7 +218,9 @@
     padding: 8px;
     border-radius: var(--radius-card);
     text-align: left;
-    transition: background-color var(--fast) var(--ease);
+    transition:
+      background-color var(--fast) var(--ease),
+      transform var(--base) var(--ease);
   }
 
   .entry:hover {

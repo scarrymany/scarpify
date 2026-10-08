@@ -6,6 +6,8 @@ import { invoke } from "../../test/tauri";
 import { library } from "$lib/state/library.svelte";
 import ImportDialog from "./ImportDialog.svelte";
 import LikeButton from "./LikeButton.svelte";
+import ContextMenu from "./ContextMenu.svelte";
+import { menu } from "$lib/state/menu.svelte";
 import PlayPauseIcon from "./PlayPauseIcon.svelte";
 import ProviderBadge from "./ProviderBadge.svelte";
 import Slider from "./Slider.svelte";
@@ -162,5 +164,31 @@ describe("LikeButton", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Save to Liked tracks" }));
     expect(heart.dataset.bounce).toBe("like");
     expect(screen.getByRole("button", { name: "Remove from Liked tracks" })).toHaveClass("liked");
+  });
+});
+
+describe("ContextMenu", () => {
+  it("runs the chosen action, opens submenus on hover and closes", async () => {
+    let ran = "";
+    render(ContextMenu);
+    menu.show(new MouseEvent("contextmenu", { clientX: 10, clientY: 10 }), [
+      { label: "Add to queue", action: () => (ran = "queue") },
+      { label: "Add to playlist", submenu: [{ label: "Road trip", action: () => (ran = "road trip") }] },
+    ]);
+    await flush();
+
+    await fireEvent.pointerEnter(screen.getByText("Add to playlist").closest(".entry")!);
+    await fireEvent.click(screen.getByRole("menuitem", { name: "Road trip" }));
+    expect(ran).toBe("road trip");
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("closes on Escape without running anything", async () => {
+    render(ContextMenu);
+    menu.show(new MouseEvent("contextmenu"), [{ label: "Delete", danger: true, action: () => {} }]);
+    await flush();
+    expect(screen.getByRole("menuitem", { name: "Delete" })).toHaveClass("danger");
+    await fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
   });
 });

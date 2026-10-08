@@ -30,6 +30,8 @@ reqwest = { version = "0.12", default-features = false, features = ["default-tls
 thiserror = "2"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 discord-rich-presence = "1.1"
+rusqlite = { version = "0.40", features = ["bundled"] }
+base64 = "0.22"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

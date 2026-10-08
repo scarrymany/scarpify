@@ -3,7 +3,9 @@
   import Card from "$lib/components/Card.svelte";
   import Shelf from "$lib/components/Shelf.svelte";
   import { i18n } from "$lib/i18n/index.svelte";
+  import { collectionActions } from "$lib/collectionActions";
   import { library } from "$lib/state/library.svelte";
+  import { menu } from "$lib/state/menu.svelte";
   import { nav } from "$lib/state/nav.svelte";
   import { player } from "$lib/state/player.svelte";
   import { trackKey, type Track } from "$lib/types";
@@ -76,8 +78,9 @@
         <Card
           title={collection.name}
           subtitle={i18n.plural(i18n.t.plural.tracks, collection.tracks.length)}
-          artwork={collection.artwork}
-          provider={collection.provider}
+          artwork={collection.customArtwork ?? collection.artwork ?? collection.tracks[0]?.artwork ?? null}
+          provider={collection.provider ?? undefined}
+          oncontextmenu={(event) => menu.show(event, collectionActions(collection))}
           onopen={() => nav.go({ name: "collection", id: collection.id })}
           onplay={() => player.playTracks(collection.tracks)}
         />

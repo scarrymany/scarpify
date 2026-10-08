@@ -32,6 +32,15 @@ pub enum MediaSource {
     Hls { playlist_url: String },
 }
 
+impl MediaSource {
+    pub fn url(&self) -> &str {
+        match self {
+            Self::Direct { url } | Self::Youtube { url, .. } => url,
+            Self::Hls { playlist_url } => playlist_url,
+        }
+    }
+}
+
 #[derive(Default)]
 struct State {
     data: Vec<u8>,
@@ -176,6 +185,11 @@ impl Seek for StreamReader {
     }
 }
 
+/// Signed CDN URLs are long and expose tokens; the message keeps only what went wrong.
+fn describe(err: reqwest::Error) -> String {
+    err.without_url().to_string()
+}
+
 pub async fn download(http: Client, source: MediaSource, buffer: Arc<StreamBuffer>) {
     let result = match source {
         MediaSource::Direct { url } => download_ranged(&http, &url, &buffer).await,
@@ -274,10 +288,10 @@ async fn fetch_body(request: reqwest::RequestBuilder, buffer: &StreamBuffer) -> 
         .send()
         .await
         .and_then(|r| r.error_for_status())
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     let mut received = 0u64;
-    while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
+    while let Some(chunk) = response.chunk().await.map_err(describe)? {
         if buffer.is_cancelled() {
             break;
         }
@@ -301,7 +315,7 @@ async fn fetch_range(
         .send()
         .await
         .and_then(|r| r.error_for_status())
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     // A server that ignores Range sends the whole file: only usable from the start.
     if response.status() == StatusCode::OK {
@@ -311,7 +325,7 @@ async fn fetch_range(
         if let Some(len) = response.content_length() {
             buffer.set_total(len);
         }
-        while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
+        while let Some(chunk) = response.chunk().await.map_err(describe)? {
             if buffer.is_cancelled() {
                 break;
             }
@@ -332,7 +346,7 @@ async fn fetch_range(
     }
 
     let mut received = 0u64;
-    while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
+    while let Some(chunk) = response.chunk().await.map_err(describe)? {
         if buffer.is_cancelled() {
             break;
         }
@@ -353,10 +367,10 @@ async fn download_hls(
         .send()
         .await
         .and_then(|r| r.error_for_status())
-        .map_err(|e| e.to_string())?
+        .map_err(describe)?
         .text()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     for segment in parse_media_playlist(&playlist) {
         if buffer.is_cancelled() {
@@ -382,7 +396,7 @@ async fn download_hls(
                 Err(err) => {
                     attempt += 1;
                     if attempt >= MAX_ATTEMPTS {
-                        return Err(err.to_string());
+                        return Err(describe(err));
                     }
                     tokio::time::sleep(RETRY_DELAY).await;
                 }

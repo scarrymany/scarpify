@@ -15,12 +15,14 @@
     onplay: () => void;
     /** Card body click; defaults to playing. */
     onopen?: () => void;
+    oncontextmenu?: (event: MouseEvent) => void;
   }
 
-  let { title, subtitle, artwork, provider, fallback = "note", playing = false, onplay, onopen }: Props = $props();
+  let { title, subtitle, artwork, provider, fallback = "note", playing = false, onplay, onopen, oncontextmenu }: Props =
+    $props();
 </script>
 
-<article class="card" class:playing>
+<article class="card" class:playing {oncontextmenu}>
   <button class="open" aria-label={title} onclick={onopen ?? onplay}></button>
   <div class="cover">
     <Artwork src={artwork} size="100%" radius="var(--radius-card)" {fallback} />

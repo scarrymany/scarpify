@@ -4,17 +4,42 @@
   import { openUrl } from "@tauri-apps/plugin-opener";
   import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
   import Check from "phosphor-svelte/lib/Check";
+  import Select from "$lib/components/Select.svelte";
+  import { api, errorMessage } from "$lib/api";
+  import { toasts } from "$lib/state/toasts.svelte";
+  import type { OutputDevice } from "$lib/types";
   import { glide } from "$lib/glide";
-  import { i18n } from "$lib/i18n/index.svelte";
+  import { format, i18n } from "$lib/i18n/index.svelte";
   import { ACCENTS, LOCALES, settings, type Theme } from "$lib/state/settings.svelte";
 
   const REPOSITORY_URL = "https://github.com/scarrymany/scarpify";
 
   let version = $state("");
+  let devices = $state<OutputDevice[]>([]);
 
   onMount(() => {
     void getVersion().then((v) => (version = v));
+    refreshDevices();
   });
+
+  function refreshDevices() {
+    api.audioDevices().then((list) => (devices = list), () => (devices = []));
+  }
+
+  const deviceOptions = $derived.by(() => {
+    const systemDefault = devices.find((d) => d.isDefault);
+    const label = systemDefault
+      ? `${i18n.t.settings.outputDefault} (${systemDefault.name})`
+      : i18n.t.settings.outputDefault;
+    return [{ value: null as string | null, label }, ...devices.map((d) => ({ value: d.id as string | null, label: d.name }))];
+  });
+
+  function chooseDevice(device: string | null) {
+    update(() => (settings.audioDevice = device));
+    api.setAudioDevice(device).catch((error) =>
+      toasts.error(format(i18n.t.errors.generic, { error: errorMessage(error) })),
+    );
+  }
 
   const themes = $derived<{ id: Theme; label: string }[]>([
     { id: "dark", label: i18n.t.settings.themeDark },
@@ -100,6 +125,20 @@
       >
         <span class="knob"></span>
       </button>
+    </div>
+
+    <div class="field">
+      <span class="label-block">
+        <span class="label">{i18n.t.settings.output}</span>
+        <span class="hint">{i18n.t.settings.outputHint}</span>
+      </span>
+      <Select
+        options={deviceOptions}
+        value={devices.some((d) => d.id === settings.audioDevice) ? settings.audioDevice : null}
+        label={i18n.t.settings.output}
+        onopen={refreshDevices}
+        onchange={chooseDevice}
+      />
     </div>
 
     <div class="field">

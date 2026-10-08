@@ -11,20 +11,37 @@ export interface Track {
   url: string | null;
 }
 
-export interface Collection {
-  /** Absent in collections saved by early builds, which were all playlists. */
-  kind?: "playlist" | "album";
+export type CollectionKind = "playlist" | "album";
+
+/** `import`: brought in by link, read-only. `user`: made and edited in SCARPIFY. */
+export type CollectionOrigin = "import" | "user";
+
+export interface SavedCollection {
+  id: string;
+  origin: CollectionOrigin;
+  kind: CollectionKind;
   name: string;
   owner: string | null;
   artwork: string | null;
-  provider: Provider;
+  /** Cover picked by the user; shown instead of `artwork`. */
+  customArtwork: string | null;
+  provider: Provider | null;
+  source: string | null;
+  createdAt: number;
+  pinned: boolean;
   tracks: Track[];
 }
 
-export interface SavedCollection extends Collection {
+export interface LibrarySnapshot {
+  liked: Track[];
+  recent: Track[];
+  collections: SavedCollection[];
+}
+
+export interface OutputDevice {
   id: string;
-  source: string;
-  importedAt: number;
+  name: string;
+  isDefault: boolean;
 }
 
 export interface ProviderResult {

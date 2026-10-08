@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fade, scale } from "svelte/transition";
   import ProviderBadge from "./ProviderBadge.svelte";
-  import { api, errorMessage } from "$lib/api";
+  import { errorMessage } from "$lib/api";
   import { format, i18n } from "$lib/i18n/index.svelte";
   import { library } from "$lib/state/library.svelte";
   import { nav } from "$lib/state/nav.svelte";
@@ -44,8 +44,7 @@
     busy = true;
     error = null;
     try {
-      const collection = await api.importPlaylist(value);
-      const saved = library.addCollection(collection, value);
+      const saved = await library.importPlaylist(value);
       toasts.show(format(i18n.t.importer.done, { name: saved.name }));
       nav.go({ name: "collection", id: saved.id });
       onclose();

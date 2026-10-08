@@ -26,6 +26,8 @@ interface Persisted {
   accent: AccentId;
   animations: boolean;
   discordPresence: boolean;
+  /** Output device id; `null` follows the system default. */
+  audioDevice: string | null;
 }
 
 const KEY = "settings";
@@ -43,6 +45,7 @@ const defaults: Persisted = {
   accent: "ember",
   animations: true,
   discordPresence: true,
+  audioDevice: null,
 };
 
 class Settings {
@@ -51,6 +54,7 @@ class Settings {
   accent = $state<AccentId>(defaults.accent);
   animations = $state(defaults.animations);
   discordPresence = $state(defaults.discordPresence);
+  audioDevice = $state<string | null>(defaults.audioDevice);
 
   constructor() {
     const stored = { ...defaults, ...load<Partial<Persisted>>(KEY, {}) };
@@ -59,6 +63,7 @@ class Settings {
     this.accent = ACCENTS.some((a) => a.id === stored.accent) ? stored.accent : defaults.accent;
     this.animations = stored.animations;
     this.discordPresence = stored.discordPresence;
+    this.audioDevice = stored.audioDevice;
   }
 
   get accentColor(): string {
@@ -72,6 +77,7 @@ class Settings {
       accent: this.accent,
       animations: this.animations,
       discordPresence: this.discordPresence,
+      audioDevice: this.audioDevice,
     });
   }
 }

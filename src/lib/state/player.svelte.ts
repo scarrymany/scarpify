@@ -104,6 +104,21 @@ class Player {
     void this.#load();
   }
 
+  /** Reorders tracks after the current one; indices are positions within `upcoming`. */
+  moveUpcoming(from: number, to: number): void {
+    const upcoming = [...this.upcoming];
+    const [moved] = upcoming.splice(from, 1);
+    if (!moved) return;
+    upcoming.splice(to, 0, moved);
+    this.queue = [...this.queue.slice(0, this.index + 1), ...upcoming];
+    this.#ordered = [...this.queue];
+  }
+
+  shuffleUpcoming(): void {
+    this.queue = [...this.queue.slice(0, this.index + 1), ...shuffled(this.upcoming)];
+    this.#ordered = [...this.queue];
+  }
+
   clearUpcoming(): void {
     this.queue = this.queue.slice(0, this.index + 1);
     this.#ordered = [...this.queue];

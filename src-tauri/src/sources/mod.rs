@@ -5,7 +5,10 @@ pub mod youtube;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
-use std::time::{Duration, Instant};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use base64::Engine;
+use reqwest::Url;
 
 use reqwest::Client;
 
@@ -21,8 +24,10 @@ pub const BROWSER_USER_AGENT: &str =
 /// Candidates further apart than this are likely a different edit (live, extended, etc.).
 const MATCH_DURATION_TOLERANCE_MS: u64 = 15_000;
 const MATCH_CANDIDATES: usize = 5;
-/// Signed stream URLs stay valid for at least an hour; reuse them well within that.
-const STREAM_TTL: Duration = Duration::from_secs(10 * 60);
+/// A cached stream must stay valid at least this long, or playback could start and then fail.
+const EXPIRY_MARGIN: Duration = Duration::from_secs(30);
+/// Lifetime assumed for signed URLs whose expiry cannot be read.
+const FALLBACK_LIFETIME: Duration = Duration::from_secs(120);
 
 #[derive(Clone)]
 pub struct ResolvedStream {
@@ -37,8 +42,9 @@ pub struct Sources {
     soundcloud: SoundCloud,
     /// Spotify URI -> matched YouTube video id, so replays skip the search.
     spotify_matches: Mutex<HashMap<String, String>>,
-    /// Streams resolved ahead of time (hover, next in queue) so playback starts instantly.
-    streams: Mutex<HashMap<String, (Instant, ResolvedStream)>>,
+    /// Streams resolved ahead of time (hover, next in queue) so playback starts instantly,
+    /// with the moment their signed URL expires.
+    streams: Mutex<HashMap<String, (SystemTime, ResolvedStream)>>,
 }
 
 impl Sources {
@@ -79,22 +85,28 @@ impl Sources {
         }
     }
 
-    /// Returns a cached stream when one was prefetched, resolving it otherwise.
+    /// Returns a cached stream when one was prefetched and is still valid, resolving otherwise.
     pub async fn stream(&self, track: &Track) -> Result<ResolvedStream> {
         let key = stream_key(track);
         let cached = lock(&self.streams)
             .get(&key)
-            .filter(|(at, _)| at.elapsed() < STREAM_TTL)
+            .filter(|(expires, _)| is_fresh(*expires))
             .map(|(_, stream)| stream.clone());
         if let Some(stream) = cached {
             return Ok(stream);
         }
 
         let stream = self.resolve(track).await?;
+        let expires = url_expiry(stream.source.url());
         let mut streams = lock(&self.streams);
-        streams.retain(|_, (at, _)| at.elapsed() < STREAM_TTL);
-        streams.insert(key, (Instant::now(), stream.clone()));
+        streams.retain(|_, (expires, _)| is_fresh(*expires));
+        streams.insert(key, (expires, stream.clone()));
         Ok(stream)
+    }
+
+    /// Drops a cached stream, e.g. after the CDN refused it.
+    pub fn forget_stream(&self, track: &Track) {
+        lock(&self.streams).remove(&stream_key(track));
     }
 
     async fn resolve(&self, track: &Track) -> Result<ResolvedStream> {
@@ -130,6 +142,42 @@ impl Sources {
         lock(&self.spotify_matches).insert(track.id.clone(), best.id.clone());
         Ok(best.id.clone())
     }
+}
+
+fn is_fresh(expires: SystemTime) -> bool {
+    SystemTime::now() + EXPIRY_MARGIN < expires
+}
+
+/// When a signed stream URL stops working: YouTube puts it in `expire`, SoundCloud's
+/// CloudFront URLs in the `DateLessThan` condition of the base64 `Policy`.
+fn url_expiry(url: &str) -> SystemTime {
+    let fallback = SystemTime::now() + FALLBACK_LIFETIME;
+    let Ok(url) = Url::parse(url) else { return fallback };
+
+    let epoch = url.query_pairs().find_map(|(key, value)| match key.as_ref() {
+        "expire" => value.parse::<u64>().ok(),
+        "Policy" => policy_epoch(&value),
+        _ => None,
+    });
+    epoch.map_or(fallback, |secs| UNIX_EPOCH + Duration::from_secs(secs))
+}
+
+fn policy_epoch(policy: &str) -> Option<u64> {
+    // CloudFront's URL-safe alphabet swaps these characters of standard base64.
+    let standard: String = policy
+        .chars()
+        .map(|c| match c {
+            '-' => '+',
+            '_' => '=',
+            '~' => '/',
+            other => other,
+        })
+        .collect();
+    let json = base64::engine::general_purpose::STANDARD.decode(standard).ok()?;
+    let policy: serde_json::Value = serde_json::from_slice(&json).ok()?;
+    policy
+        .pointer("/Statement/0/Condition/DateLessThan/AWS:EpochTime")?
+        .as_u64()
 }
 
 fn stream_key(track: &Track) -> String {
@@ -237,3 +285,33 @@ mod live_import_tests {
     }
 }
 
+
+#[cfg(test)]
+mod expiry_tests {
+    use super::*;
+
+    fn epoch(time: SystemTime) -> u64 {
+        time.duration_since(UNIX_EPOCH).unwrap().as_secs()
+    }
+
+    #[test]
+    fn reads_youtube_and_cloudfront_expiry() {
+        assert_eq!(epoch(url_expiry("https://rr1.googlevideo.com/videoplayback?expire=1791448435&itag=140")), 1791448435);
+
+        let policy = r#"{"Statement":[{"Resource":"*","Condition":{"DateLessThan":{"AWS:EpochTime":1791385947}}}]}"#;
+        let encoded: String = base64::engine::general_purpose::STANDARD
+            .encode(policy)
+            .chars()
+            .map(|c| match c { '+' => '-', '=' => '_', '/' => '~', other => other })
+            .collect();
+        let url = format!("https://cf-media.sndcdn.com/a.128.mp3?Policy={encoded}&Signature=x");
+        assert_eq!(epoch(url_expiry(&url)), 1791385947);
+    }
+
+    #[test]
+    fn unknown_urls_get_a_short_lifetime() {
+        let expiry = url_expiry("https://example.com/audio.mp3");
+        assert!(expiry > SystemTime::now() && expiry <= SystemTime::now() + FALLBACK_LIFETIME);
+        assert!(!is_fresh(SystemTime::now() + Duration::from_secs(10)));
+    }
+}

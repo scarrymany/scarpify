@@ -1,5 +1,7 @@
 <script lang="ts">
   import X from "phosphor-svelte/lib/X";
+  import Shuffle from "phosphor-svelte/lib/Shuffle";
+  import { sortable } from "$lib/sortable";
   import Artwork from "./Artwork.svelte";
   import ProviderBadge from "./ProviderBadge.svelte";
   import { i18n } from "$lib/i18n/index.svelte";
@@ -14,7 +16,13 @@
 </script>
 
 {#snippet item(track: Track, index: number, active: boolean)}
-  <button class="item" class:active ondblclick={() => player.jumpTo(index)} onclick={() => active && player.toggle()}>
+  <button
+    class="item"
+    class:active
+    data-sortable={active ? undefined : ""}
+    ondblclick={() => player.jumpTo(index)}
+    onclick={() => active && player.toggle()}
+  >
     <Artwork src={track.artwork} size="44px" />
     <span class="text">
       <span class="title">{track.title}</span>
@@ -38,14 +46,28 @@
       <div class="next-header">
         <h3>{i18n.t.queue.next}</h3>
         {#if player.upcoming.length > 0}
-          <button class="link" onclick={() => player.clearUpcoming()}>{i18n.t.queue.clear}</button>
+          <div class="next-actions">
+            {#if player.upcoming.length > 1}
+              <button
+                class="icon-button small"
+                aria-label={i18n.t.queue.shuffle}
+                title={i18n.t.queue.shuffle}
+                onclick={() => player.shuffleUpcoming()}
+              >
+                <Shuffle />
+              </button>
+            {/if}
+            <button class="link" onclick={() => player.clearUpcoming()}>{i18n.t.queue.clear}</button>
+          </div>
         {/if}
       </div>
-      {#each player.upcoming as track, offset (trackKey(track) + offset)}
-        {@render item(track, player.index + 1 + offset, false)}
-      {:else}
-        <p class="empty">{i18n.t.queue.empty}</p>
-      {/each}
+      <div class="upcoming" use:sortable={{ onmove: (from, to) => player.moveUpcoming(from, to) }}>
+        {#each player.upcoming as track, offset (trackKey(track) + offset)}
+          {@render item(track, player.index + 1 + offset, false)}
+        {:else}
+          <p class="empty">{i18n.t.queue.empty}</p>
+        {/each}
+      </div>
     {:else}
       <p class="empty">{i18n.t.queue.empty}</p>
     {/if}
@@ -94,6 +116,23 @@
     padding-right: 12px;
   }
 
+  .next-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .small {
+    width: 28px;
+    height: 28px;
+    font-size: 15px;
+  }
+
+  .upcoming {
+    display: flex;
+    flex-direction: column;
+  }
+
   .link {
     color: var(--text-muted);
     font-size: 12.5px;
@@ -112,7 +151,9 @@
     padding: 8px 12px;
     border-radius: var(--radius-card);
     text-align: left;
-    transition: background-color var(--fast) var(--ease);
+    transition:
+      background-color var(--fast) var(--ease),
+      transform var(--base) var(--ease);
   }
 
   .item:hover {

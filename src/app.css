@@ -267,3 +267,26 @@ p {
     opacity: 0.45;
   }
 }
+
+/* Drag-to-reorder (see $lib/sortable). */
+[data-sortable] {
+  transition: transform var(--base) var(--ease);
+}
+
+.sorting {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.sorting [data-sortable].dragging {
+  position: relative;
+  z-index: 2;
+  transition: none;
+  border-radius: var(--radius-card);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+}
+
+.sort-dropping [data-sortable] {
+  transition: none !important;
+}

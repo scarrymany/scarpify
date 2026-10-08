@@ -157,3 +157,18 @@ describe("Discord presence", () => {
     expect(commands("update_presence").at(-1)).toEqual([{ nowPlaying: null }]);
   });
 });
+
+describe("queue editing", () => {
+  it("reorders and shuffles only what comes after the current track", () => {
+    const tracks = makeTracks(12);
+    player.playTracks(tracks, 2);
+
+    player.moveUpcoming(0, 3);
+    expect(player.upcoming.slice(0, 4).map((t) => t.id)).toEqual(["id-5", "id-6", "id-7", "id-4"]);
+
+    player.shuffleUpcoming();
+    expect(player.current?.id).toBe("id-3");
+    expect(player.queue.slice(0, 3).map((t) => t.id)).toEqual(["id-1", "id-2", "id-3"]);
+    expect(new Set(player.upcoming.map((t) => t.id))).toEqual(new Set(tracks.slice(3).map((t) => t.id)));
+  });
+});

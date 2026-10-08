@@ -6,12 +6,18 @@
  * Usage: `npm run dev` in one terminal, then `npm run test:perf`.
  * Set CHROME_PATH when Chrome is not installed in the default Windows location.
  */
+import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 
 const CHROME = process.env.CHROME_PATH ?? "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const URL = process.env.PREVIEW_URL ?? "http://localhost:1420/";
 /** Three missed frames at 60 Hz; anything longer is a visible hitch. */
 const MAX_FRAME_MS = 50;
+/**
+ * A theme change starts with one frame in which the browser snapshots the page for the
+ * cross-fade; without a GPU (headless) that frame alone takes 35-55 ms.
+ */
+const THEME_SWITCH_MAX_FRAME_MS = 80;
 /**
  * Opening the queue must reflow the main area once (a width animation re-lays out every card
  * grid per frame) while the panel itself glides through many positions.
@@ -69,7 +75,9 @@ await page.evaluate(() => {
 
 // Seed: import the 300-track demo playlist and play from it.
 await page.evaluate(async () => {
-  window.__byLabel("Импорт плейлиста").click();
+  window.__byLabel("Создать плейлист").click();
+  await window.__sleep(150);
+  [...document.querySelectorAll("[role=menuitem]")].find((b) => b.textContent.includes("Импорт")).click();
   await window.__sleep(300);
   const input = document.querySelector("#import-link");
   input.value = "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M";
@@ -156,11 +164,65 @@ results.spaceOnFocusedButton = await (async () => {
   return { toggled: before !== (await label()), buttonPressed: await page.evaluate(() => window.__minimizeClicks > 0) };
 })();
 
+// Editing flows: drag to reorder (queue and sidebar) and a custom playlist cover.
+async function drag(from, to) {
+  const a = await from.boundingBox();
+  const b = await to.boundingBox();
+  // Aim past the target's midpoint, the point where rows swap places.
+  const distance = b.y - a.y + Math.sign(b.y - a.y) * (b.height / 3);
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  for (let step = 1; step <= 12; step++) {
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2 + (distance * step) / 12);
+    await new Promise((r) => setTimeout(r, 16));
+  }
+  await page.mouse.up();
+  await new Promise((r) => setTimeout(r, 300));
+}
+
+results.editing = {};
+{
+  await page.evaluate(() => window.__byLabel("Queue")?.click() ?? window.__byLabel("Очередь")?.click());
+  await new Promise((r) => setTimeout(r, 500));
+  const titles = () => page.$$eval(".upcoming .title", (els) => els.slice(0, 3).map((e) => e.textContent));
+  const before = await titles();
+  const items = await page.$$(".upcoming [data-sortable]");
+  await drag(items[2], items[0]);
+  const after = await titles();
+  results.editing.queueDrag = after[0] === before[2] && after[1] === before[0];
+}
+{
+  const create = () =>
+    page.evaluate(async () => {
+      const add = document.querySelector(".library-header .icon-button");
+      add.click();
+      await window.__sleep(150);
+      document.querySelector("[role=menuitem]").click();
+      await window.__sleep(400);
+      document.activeElement?.blur();
+      await window.__sleep(200);
+    });
+  await create();
+  await create();
+  const names = () => page.$$eval(".collections .entry-title", (els) => els.map((e) => e.textContent));
+  const before = await names();
+  const entries = await page.$$(".collections [data-sortable]");
+  await drag(entries[entries.length - 1], entries[0]);
+  const after = await names();
+  results.editing.sidebarDrag = after[0] === before[before.length - 1];
+
+  const [chooser] = await Promise.all([page.waitForFileChooser(), page.click(".hero .cover")]);
+  await chooser.accept([fileURLToPath(import.meta.resolve("../src-tauri/icons/icon.png"))]);
+  await new Promise((r) => setTimeout(r, 800));
+  results.editing.customCover = await page.$eval(".hero .cover img", (img) => img.src.startsWith("data:image/jpeg"));
+}
+
 await browser.close();
 
 const failures = [];
 for (const [name, result] of Object.entries(results)) {
-  if (result.maxMs > MAX_FRAME_MS) failures.push(`${name}: ${result.maxMs} ms frame`);
+  const limit = name.startsWith("theme") ? THEME_SWITCH_MAX_FRAME_MS : MAX_FRAME_MS;
+  if (result.maxMs > limit) failures.push(`${name}: ${result.maxMs} ms frame`);
 }
 for (const name of ["queueOpen", "queueClose"]) {
   if (results[name].mainWidthSteps > MAX_QUEUE_REFLOWS) failures.push(`${name}: content reflows every frame`);
@@ -170,6 +232,9 @@ if (results.cachedArtwork.instant !== results.cachedArtwork.cards) failures.push
 if (!results.switchingFlagCleared) failures.push("theme switch left transitions disabled");
 if (!results.spaceOnFocusedButton.toggled || results.spaceOnFocusedButton.buttonPressed) {
   failures.push("space pressed the focused button instead of toggling playback");
+}
+for (const [name, passed] of Object.entries(results.editing)) {
+  if (!passed) failures.push(`${name} did not work`);
 }
 for (const [name, check] of Object.entries(results.glide)) {
   if (!check.slides) failures.push(`${name} indicator jumps instead of sliding`);

@@ -8,6 +8,8 @@ pub enum Error {
     Youtube(#[from] rustypipe::error::Error),
     #[error("invalid response: {0}")]
     Json(#[from] serde_json::Error),
+    #[error("library: {0}")]
+    Library(#[from] rusqlite::Error),
     #[error("audio output: {0}")]
     Output(String),
     #[error("cannot decode stream: {0}")]
@@ -16,6 +18,9 @@ pub enum Error {
     Unavailable(String),
     #[error("unsupported link")]
     UnsupportedLink,
+    /// Another track was started before this one finished loading.
+    #[error("cancelled")]
+    Cancelled,
 }
 
 /// Request URLs carry signatures and client ids that only clutter user-facing messages.

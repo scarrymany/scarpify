@@ -7,6 +7,8 @@
   import QueuePanel from "$lib/components/QueuePanel.svelte";
   import ImportDialog from "$lib/components/ImportDialog.svelte";
   import Toasts from "$lib/components/Toasts.svelte";
+  import ContextMenu from "$lib/components/ContextMenu.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import HomeView from "$lib/views/HomeView.svelte";
   import SearchView from "$lib/views/SearchView.svelte";
   import CollectionView from "$lib/views/CollectionView.svelte";
@@ -29,7 +31,10 @@
   const collection = $derived(route.name === "collection" ? library.collection(route.id) : undefined);
 
   onMount(() => {
-    player.init().catch((error) => toasts.error(format(i18n.t.errors.generic, { error: errorMessage(error) })));
+    const report = (error: unknown) => toasts.error(format(i18n.t.errors.generic, { error: errorMessage(error) }));
+    player.init().catch(report);
+    library.init().catch(report);
+    if (settings.audioDevice) api.setAudioDevice(settings.audioDevice).catch(report);
   });
 
   $effect(() => {
@@ -37,15 +42,10 @@
   });
 
   $effect(() => {
-    if (route.name === "collection" && !collection) {
+    if (library.ready && route.name === "collection" && !collection) {
       nav.forget((r) => r.name === "collection" && r.id === route.id);
     }
   });
-
-  function removeCollection(id: string) {
-    library.removeCollection(id);
-    nav.forget((r) => r.name === "collection" && r.id === id);
-  }
 
   function isTyping(target: EventTarget | null): boolean {
     return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
@@ -104,25 +104,13 @@
           <SearchView />
         {:else if route.name === "liked"}
           <CollectionView
-            kind={i18n.t.collection.playlist}
-            name={i18n.t.nav.liked}
-            artwork={null}
-            fallback="heart"
+            title={i18n.t.nav.liked}
             tracks={library.liked}
             emptyTitle={i18n.t.collection.likedEmptyTitle}
             emptyBody={i18n.t.collection.likedEmptyBody}
           />
         {:else if route.name === "collection" && collection}
-          <CollectionView
-            kind={collection.kind === "album" ? i18n.t.collection.album : i18n.t.collection.playlist}
-            name={collection.name}
-            owner={collection.owner}
-            artwork={collection.artwork}
-            provider={collection.provider}
-            tracks={collection.tracks}
-            emptyTitle={i18n.t.collection.empty}
-            onremove={() => removeCollection(collection.id)}
-          />
+          <CollectionView {collection} />
         {:else if route.name === "settings"}
           <SettingsView />
         {/if}
@@ -142,6 +130,8 @@
   <ImportDialog onclose={() => (importOpen = false)} />
 {/if}
 
+<ContextMenu />
+<ConfirmDialog />
 <Toasts />
 
 <style>
