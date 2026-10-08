@@ -11,11 +11,12 @@
   import SearchView from "$lib/views/SearchView.svelte";
   import CollectionView from "$lib/views/CollectionView.svelte";
   import SettingsView from "$lib/views/SettingsView.svelte";
-  import { errorMessage } from "$lib/api";
+  import { api, errorMessage } from "$lib/api";
   import { format, i18n } from "$lib/i18n/index.svelte";
   import { library } from "$lib/state/library.svelte";
   import { nav } from "$lib/state/nav.svelte";
   import { player } from "$lib/state/player.svelte";
+  import { settings } from "$lib/state/settings.svelte";
   import { toasts } from "$lib/state/toasts.svelte";
   import { motion } from "$lib/motion";
 
@@ -29,6 +30,10 @@
 
   onMount(() => {
     player.init().catch((error) => toasts.error(format(i18n.t.errors.generic, { error: errorMessage(error) })));
+  });
+
+  $effect(() => {
+    void api.setPresenceEnabled(settings.discordPresence);
   });
 
   $effect(() => {

@@ -56,6 +56,24 @@ class Player {
     await api.setVolume(this.#effectiveVolume());
   }
 
+  /** Discord shows the track while it plays; pausing or stopping hides it, like Spotify. */
+  #syncPresence(): void {
+    const track = this.current;
+    if (this.status !== "playing" || !track) {
+      void api.updatePresence(null);
+      return;
+    }
+    void api.updatePresence({
+      title: track.title,
+      artists: track.artists,
+      album: track.album,
+      artwork: track.artwork,
+      url: track.url,
+      positionMs: Math.round(this.positionMs),
+      durationMs: track.durationMs,
+    });
+  }
+
   playTracks(tracks: Track[], startIndex = 0): void {
     if (tracks.length === 0) return;
     const start = tracks[startIndex];
@@ -123,6 +141,7 @@ class Player {
     const clamped = Math.max(0, Math.min(positionMs, this.durationMs || positionMs));
     this.#setAnchor(clamped);
     void api.seek(clamped);
+    if (this.status === "playing") this.#syncPresence();
   }
 
   setVolume(volume: number): void {
@@ -202,12 +221,14 @@ class Player {
         this.status = "playing";
         this.#setAnchor(event.positionMs);
         this.#startClock();
+        this.#syncPresence();
         if (this.upcoming[0]) this.prefetch(this.upcoming[0]);
         break;
       case "paused":
         this.status = "paused";
         this.#setAnchor(event.positionMs);
         this.#stopClock();
+        this.#syncPresence();
         break;
       case "progress":
         this.#setAnchor(event.positionMs);
@@ -217,7 +238,10 @@ class Player {
         this.#stopClock();
         if (this.repeat === "one") void this.#load();
         else if (this.index + 1 < this.queue.length || this.repeat === "all") this.next();
-        else this.status = "paused";
+        else {
+          this.status = "paused";
+          this.#syncPresence();
+        }
         break;
       case "error":
         toasts.error(format(i18n.t.errors.generic, { error: event.message }));

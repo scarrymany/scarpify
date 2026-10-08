@@ -1,6 +1,7 @@
 mod audio;
 mod error;
 mod model;
+mod presence;
 mod sources;
 
 use std::time::Duration;
@@ -10,6 +11,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use audio::engine::{AudioEngine, LoadRequest};
 use error::Result;
 use model::{Collection, ProviderResult, Track};
+use presence::{NowPlaying, Presence};
 use sources::Sources;
 
 const PLAYER_EVENT: &str = "player";
@@ -18,6 +20,7 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 struct AppState {
     sources: Sources,
     engine: AudioEngine,
+    presence: Presence,
 }
 
 #[tauri::command]
@@ -53,6 +56,20 @@ async fn play(track: Track, state: State<'_, AppState>) -> Result<()> {
             gain: stream.gain,
         })
         .await
+}
+
+/// `None` hides the activity (paused or stopped), mirroring Spotify's behaviour.
+#[tauri::command]
+fn update_presence(now_playing: Option<NowPlaying>, state: State<'_, AppState>) {
+    match now_playing {
+        Some(now_playing) => state.presence.show(now_playing),
+        None => state.presence.hide(),
+    }
+}
+
+#[tauri::command]
+fn set_presence_enabled(enabled: bool, state: State<'_, AppState>) {
+    state.presence.set_enabled(enabled);
 }
 
 #[tauri::command]
@@ -96,6 +113,7 @@ fn init_state(app: &AppHandle) -> std::result::Result<AppState, Box<dyn std::err
     Ok(AppState {
         sources: Sources::new(http, cache_dir)?,
         engine,
+        presence: Presence::spawn(),
     })
 }
 
@@ -123,7 +141,9 @@ pub fn run() {
             resume,
             stop,
             seek,
-            set_volume
+            set_volume,
+            update_presence,
+            set_presence_enabled
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

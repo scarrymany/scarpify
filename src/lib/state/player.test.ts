@@ -140,3 +140,20 @@ describe("prefetching", () => {
     expect(commands("prefetch")).toEqual([[{ track: tracks[1] }]]);
   });
 });
+
+describe("Discord presence", () => {
+  it("shows the playing track with its position and hides it on pause", () => {
+    const track = makeTrack(3, "soundcloud");
+    player.playTracks([track]);
+    emit({ kind: "playing", positionMs: 0 });
+    emit({ kind: "progress", positionMs: 30_000 });
+    player.seek(60_000);
+
+    const updates = commands("update_presence").map(([args]) => (args as { nowPlaying: unknown }).nowPlaying);
+    expect(updates[0]).toMatchObject({ title: track.title, artists: track.artists, positionMs: 0 });
+    expect(updates.at(-1)).toMatchObject({ positionMs: 60_000, durationMs: track.durationMs });
+
+    emit({ kind: "paused", positionMs: 61_000 });
+    expect(commands("update_presence").at(-1)).toEqual([{ nowPlaying: null }]);
+  });
+});

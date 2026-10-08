@@ -101,6 +101,22 @@
         <span class="knob"></span>
       </button>
     </div>
+
+    <div class="field">
+      <span class="label-block">
+        <span class="label">{i18n.t.settings.discord}</span>
+        <span class="hint">{i18n.t.settings.discordHint}</span>
+      </span>
+      <button
+        class="switch"
+        role="switch"
+        aria-checked={settings.discordPresence}
+        aria-label={i18n.t.settings.discord}
+        onclick={() => update(() => (settings.discordPresence = !settings.discordPresence))}
+      >
+        <span class="knob"></span>
+      </button>
+    </div>
   </section>
 
   <section>

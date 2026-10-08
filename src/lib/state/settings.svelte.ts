@@ -25,6 +25,7 @@ interface Persisted {
   theme: Theme;
   accent: AccentId;
   animations: boolean;
+  discordPresence: boolean;
 }
 
 const KEY = "settings";
@@ -41,6 +42,7 @@ const defaults: Persisted = {
   theme: "dark",
   accent: "ember",
   animations: true,
+  discordPresence: true,
 };
 
 class Settings {
@@ -48,6 +50,7 @@ class Settings {
   theme = $state<Theme>(defaults.theme);
   accent = $state<AccentId>(defaults.accent);
   animations = $state(defaults.animations);
+  discordPresence = $state(defaults.discordPresence);
 
   constructor() {
     const stored = { ...defaults, ...load<Partial<Persisted>>(KEY, {}) };
@@ -55,6 +58,7 @@ class Settings {
     this.theme = stored.theme;
     this.accent = ACCENTS.some((a) => a.id === stored.accent) ? stored.accent : defaults.accent;
     this.animations = stored.animations;
+    this.discordPresence = stored.discordPresence;
   }
 
   get accentColor(): string {
@@ -67,6 +71,7 @@ class Settings {
       theme: this.theme,
       accent: this.accent,
       animations: this.animations,
+      discordPresence: this.discordPresence,
     });
   }
 }

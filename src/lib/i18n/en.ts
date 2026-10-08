@@ -106,6 +106,8 @@ export const en = {
     accent: "Accent color",
     motion: "Animations",
     motionHint: "Turn off to keep every transition instant.",
+    discord: "Show in Discord",
+    discordHint: "Your Discord status shows the track you are listening to.",
     about: "About",
     aboutBody: "Open-source music player without ads. Licensed under GPL‑3.0.",
     sourceCode: "Source code",

@@ -106,6 +106,8 @@ export const uk: Dictionary = {
     accent: "Акцентний колір",
     motion: "Анімації",
     motionHint: "Якщо вимкнути, усі переходи стануть миттєвими.",
+    discord: "Показувати в Discord",
+    discordHint: "Статус у Discord показує трек, який ви слухаєте.",
     about: "Про програму",
     aboutBody: "Музичний плеєр з відкритим кодом і без реклами. Ліцензія GPL‑3.0.",
     sourceCode: "Вихідний код",

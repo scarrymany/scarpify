@@ -15,7 +15,20 @@ export const api = {
   stop: () => invoke<void>("stop"),
   seek: (positionMs: number) => invoke<void>("seek", { positionMs: Math.round(positionMs) }),
   setVolume: (volume: number) => invoke<void>("set_volume", { volume }),
+  updatePresence: (nowPlaying: NowPlaying | null) => invoke<void>("update_presence", { nowPlaying }),
+  setPresenceEnabled: (enabled: boolean) => invoke<void>("set_presence_enabled", { enabled }),
 };
+
+/** What Discord shows under "Listening to SCARPIFY". */
+export interface NowPlaying {
+  title: string;
+  artists: string[];
+  album: string | null;
+  artwork: string | null;
+  url: string | null;
+  positionMs: number;
+  durationMs: number | null;
+}
 
 export function onPlayerEvent(handler: (event: PlayerEvent) => void): Promise<UnlistenFn> {
   return listen<PlayerEvent>(PLAYER_EVENT, (event) => handler(event.payload));
