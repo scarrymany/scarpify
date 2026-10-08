@@ -19,6 +19,28 @@
 
   let { tracks, showAlbum = true, showHeader = true }: Props = $props();
 
+  /** Enough rows to fill the screen in the first frame; the rest arrive in later frames. */
+  const FIRST_BATCH = 40;
+  const BATCH = 60;
+
+  let rendered = $state(FIRST_BATCH);
+  const visible = $derived(tracks.slice(0, rendered));
+
+  // Building hundreds of rows at once stalls the frame that opens a big playlist.
+  $effect(() => {
+    const total = tracks.length;
+    let count = Math.min(total, FIRST_BATCH);
+    rendered = count;
+    let frame = 0;
+    const grow = () => {
+      count = Math.min(total, count + BATCH);
+      rendered = count;
+      if (count < total) frame = requestAnimationFrame(grow);
+    };
+    if (count < total) frame = requestAnimationFrame(grow);
+    return () => cancelAnimationFrame(frame);
+  });
+
   const currentKey = $derived(player.current ? trackKey(player.current) : null);
 
   function play(index: number) {
@@ -41,7 +63,7 @@
     </div>
   {/if}
 
-  {#each tracks as track, index (trackKey(track) + index)}
+  {#each visible as track, index (trackKey(track) + index)}
     {@const active = currentKey === trackKey(track)}
     {@const playing = active && player.status === "playing"}
     {@const liked = library.isLiked(track)}
@@ -126,6 +148,9 @@
     padding: 0 12px;
     border-radius: var(--radius-card);
     transition: background-color var(--fast) var(--ease);
+    /* Long playlists: rows outside the viewport skip layout and paint entirely. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 64px;
   }
 
   .row:not(.header):hover {

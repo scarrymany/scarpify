@@ -17,8 +17,18 @@
   let loadedSrc = $state<string | null>(null);
   let failedSrc = $state<string | null>(null);
 
+  /** Images already in the browser cache appear at once; fading them in reads as lag. */
+  let cachedSrc = $state<string | null>(null);
+
   const loaded = $derived(src !== null && loadedSrc === src);
   const failed = $derived(src !== null && failedSrc === src);
+
+  function detectCached(image: HTMLImageElement) {
+    if (image.complete && image.naturalWidth > 0) {
+      cachedSrc = src;
+      loadedSrc = src;
+    }
+  }
 </script>
 
 <div class="artwork" class:heart={fallback === "heart"} style:width={size} style:height={size} style:border-radius={radius}>
@@ -31,6 +41,8 @@
       referrerpolicy="no-referrer"
       draggable="false"
       class:loaded
+      class:instant={cachedSrc === src}
+      use:detectCached
       onload={() => (loadedSrc = src)}
       onerror={() => (failedSrc = src)}
     />
@@ -71,6 +83,10 @@
 
   img.loaded {
     opacity: 1;
+  }
+
+  img.instant {
+    transition: none;
   }
 
   .placeholder {

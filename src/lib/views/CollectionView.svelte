@@ -127,6 +127,8 @@
     filter: blur(60px) saturate(1.4);
     opacity: 0.45;
     pointer-events: none;
+    /* Own compositor layer: the blur is rasterized once instead of on every scroll frame. */
+    will-change: transform;
   }
 
   .hero::after {

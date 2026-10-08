@@ -64,10 +64,14 @@ npm run tauri build    # installer in src-tauri/target/release/bundle
 Tests:
 
 ```bash
+npm test                            # interface tests (Vitest + Testing Library)
+npm run test:perf                   # frame-time check of key interactions, needs `npm run dev`
 cd src-tauri
-cargo test                          # unit tests
+cargo test                          # backend unit tests
 cargo test -- --ignored --nocapture # live tests against all providers
 ```
+
+`npm run dev` opened in a regular browser runs the interface on demo data, without Tauri.
 
 ## Disclaimer
 

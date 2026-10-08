@@ -16,7 +16,8 @@
   let dragValue = $state<number | null>(null);
 
   const shown = $derived(dragValue ?? value);
-  const ratio = $derived(max > 0 ? Math.min(1, Math.max(0, shown / max)) : 0);
+  // A non-finite ratio would make `scaleX` invalid and paint the whole rail as filled.
+  const ratio = $derived(max > 0 && Number.isFinite(shown) ? Math.min(1, Math.max(0, shown / max)) : 0);
 
   function valueAt(clientX: number): number {
     const rect = track.getBoundingClientRect();

@@ -289,3 +289,18 @@ impl<F: Fn(PlayerEvent)> EngineThread<F> {
 fn position_ms(player: &Player) -> u64 {
     player.get_pos().as_millis() as u64
 }
+
+#[cfg(test)]
+mod tests {
+    use super::PlayerEvent;
+
+    /// The UI reads `positionMs`; a snake_case field silently froze the progress bar.
+    #[test]
+    fn events_serialize_in_camel_case() {
+        let event = serde_json::to_value(PlayerEvent::Progress { position_ms: 1500 }).unwrap();
+        assert_eq!(event, serde_json::json!({ "kind": "progress", "positionMs": 1500 }));
+
+        let ended = serde_json::to_value(PlayerEvent::Ended).unwrap();
+        assert_eq!(ended, serde_json::json!({ "kind": "ended" }));
+    }
+}

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { fade, fly } from "svelte/transition";
+  import { fade } from "svelte/transition";
   import TitleBar from "$lib/components/TitleBar.svelte";
   import Sidebar from "$lib/components/Sidebar.svelte";
   import PlayerBar from "$lib/components/PlayerBar.svelte";
@@ -113,11 +113,10 @@
     {/key}
   </main>
 
-  {#if queueOpen}
-    <div class="queue-slot" transition:fly={motion(240, { x: 24 })}>
-      <QueuePanel onclose={() => (queueOpen = false)} />
-    </div>
-  {/if}
+  <!-- Kept mounted so the column can animate closed instead of snapping. -->
+  <div class="queue-slot" class:open={queueOpen} inert={!queueOpen} aria-hidden={!queueOpen}>
+    <QueuePanel onclose={() => (queueOpen = false)} />
+  </div>
 
   <PlayerBar {queueOpen} ontogglequeue={() => (queueOpen = !queueOpen)} />
 </div>
@@ -135,15 +134,21 @@
       "titlebar titlebar titlebar"
       "sidebar main queue"
       "player player player";
-    grid-template-columns: var(--sidebar-width) minmax(0, 1fr) auto;
+    /* Gaps live inside the columns, so a closed queue leaves no extra gutter. */
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 0px;
     grid-template-rows: var(--titlebar-height) minmax(0, 1fr) var(--playerbar-height);
-    column-gap: 8px;
     height: 100vh;
     padding: 0 8px;
+    transition: grid-template-columns var(--slow) var(--ease);
+  }
+
+  .app.with-queue {
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr) calc(var(--queue-width) + 8px);
   }
 
   .main {
     grid-area: main;
+    margin-left: 8px;
     overflow: hidden;
     border-radius: var(--radius-panel);
     background: var(--surface);
@@ -158,6 +163,19 @@
   .queue-slot {
     grid-area: queue;
     display: flex;
+    min-width: 0;
     min-height: 0;
+    padding-left: 8px;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity var(--base) var(--ease);
+  }
+
+  .queue-slot.open {
+    opacity: 1;
+  }
+
+  .queue-slot > :global(*) {
+    flex: none;
   }
 </style>
