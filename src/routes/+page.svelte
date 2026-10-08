@@ -52,6 +52,7 @@
   }
 
   function onkeydown(event: KeyboardEvent) {
+    if (event.key === "Tab") document.documentElement.dataset.keyboardNav = "";
     if ((event.ctrlKey && (event.key === "l" || event.key === "f")) || (event.key === "/" && !isTyping(event.target))) {
       event.preventDefault();
       titleBar.focusSearch();
@@ -63,11 +64,22 @@
     else if (event.key === "MediaTrackNext") player.next();
     else if (event.key === "MediaTrackPrevious") player.previous();
     else if (isTyping(event.target)) return;
-    else if (event.code === "Space" && !(event.target instanceof HTMLButtonElement)) {
+    else if (event.code === "Space") {
+      // Space is play/pause everywhere, like in Spotify. A focused button (say, minimize
+      // after a click) would otherwise be pressed by it; Enter still activates buttons.
       event.preventDefault();
-      player.toggle();
+      if (!event.repeat) player.toggle();
     } else if (event.ctrlKey && event.key === "ArrowRight") player.next();
     else if (event.ctrlKey && event.key === "ArrowLeft") player.previous();
+  }
+
+  /** Buttons activate on Space release, so the release must be swallowed as well. */
+  function onkeyup(event: KeyboardEvent) {
+    if (event.code === "Space" && !isTyping(event.target)) event.preventDefault();
+  }
+
+  function onpointerdown() {
+    delete document.documentElement.dataset.keyboardNav;
   }
 
   /** Mouse back and forward buttons navigate like in a browser. */
@@ -77,7 +89,7 @@
   }
 </script>
 
-<svelte:window {onkeydown} {onmouseup} />
+<svelte:window {onkeydown} {onkeyup} {onpointerdown} {onmouseup} />
 
 <div class="app" class:with-queue={queueOpen} oncontextmenu={(e) => e.preventDefault()} role="presentation">
   <TitleBar bind:this={titleBar} />
@@ -118,7 +130,7 @@
     {/key}
   </main>
 
-  <!-- Kept mounted so the column can animate closed instead of snapping. -->
+  <!-- Kept mounted so it can slide out instead of disappearing. -->
   <div class="queue-slot" class:open={queueOpen} inert={!queueOpen} aria-hidden={!queueOpen}>
     <QueuePanel onclose={() => (queueOpen = false)} />
   </div>
@@ -142,9 +154,10 @@
     /* Gaps live inside the columns, so a closed queue leaves no extra gutter. */
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 0px;
     grid-template-rows: var(--titlebar-height) minmax(0, 1fr) var(--playerbar-height);
+    position: relative;
     height: 100vh;
     padding: 0 8px;
-    transition: grid-template-columns var(--slow) var(--ease);
+    overflow: hidden;
   }
 
   .app.with-queue {
@@ -165,22 +178,23 @@
     overscroll-behavior: contain;
   }
 
+  /*
+   * The grid column only reserves space and switches in a single step: animating its width
+   * reflowed the card grids on every frame. The panel itself slides over that space with a
+   * compositor-only transform.
+   */
   .queue-slot {
-    grid-area: queue;
+    position: absolute;
+    top: var(--titlebar-height);
+    right: 8px;
+    bottom: var(--playerbar-height);
     display: flex;
-    min-width: 0;
-    min-height: 0;
-    padding-left: 8px;
-    overflow: hidden;
-    opacity: 0;
-    transition: opacity var(--base) var(--ease);
+    transform: translateX(calc(100% + 16px));
+    transition: transform var(--slow) var(--ease);
+    will-change: transform;
   }
 
   .queue-slot.open {
-    opacity: 1;
-  }
-
-  .queue-slot > :global(*) {
-    flex: none;
+    transform: none;
   }
 </style>

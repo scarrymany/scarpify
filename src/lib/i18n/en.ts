@@ -15,6 +15,7 @@ export const en = {
     maximize: "Maximize",
     restore: "Restore",
     close: "Close",
+    author: "Author on Telegram",
   },
   home: {
     morning: "Good morning",

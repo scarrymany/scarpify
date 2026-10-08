@@ -15,6 +15,7 @@ export const uk: Dictionary = {
     maximize: "Розгорнути",
     restore: "Відновити",
     close: "Закрити",
+    author: "Автор у Telegram",
   },
   home: {
     morning: "Доброго ранку",

@@ -12,8 +12,12 @@ const CHROME = process.env.CHROME_PATH ?? "C:/Program Files/Google/Chrome/Applic
 const URL = process.env.PREVIEW_URL ?? "http://localhost:1420/";
 /** Three missed frames at 60 Hz; anything longer is a visible hitch. */
 const MAX_FRAME_MS = 50;
-/** An animated column resize produces many intermediate widths; a snap produces one or two. */
-const MIN_QUEUE_WIDTH_STEPS = 10;
+/**
+ * Opening the queue must reflow the main area once (a width animation re-lays out every card
+ * grid per frame) while the panel itself glides through many positions.
+ */
+const MAX_QUEUE_REFLOWS = 2;
+const MIN_QUEUE_PANEL_STEPS = 10;
 
 const browser = await puppeteer.launch({
   executablePath: CHROME,
@@ -32,13 +36,16 @@ await page.evaluate(() => {
   window.__measure = async (action, ms = 900) => {
     const frames = [];
     const widths = [];
+    const panelX = [];
     const main = document.querySelector(".main");
+    const panel = document.querySelector(".queue-slot");
     let last = performance.now();
     let run = true;
     const loop = (t) => {
       frames.push(t - last);
       last = t;
       widths.push(Math.round(main.getBoundingClientRect().width));
+      panelX.push(Math.round(panel.getBoundingClientRect().left));
       if (run) requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
@@ -55,6 +62,7 @@ await page.evaluate(() => {
       maxMs: +s[s.length - 1].toFixed(1),
       over34ms: s.filter((f) => f > 34).length,
       mainWidthSteps: distinct.length,
+      panelSteps: new Set(panelX).size,
     };
   };
 });
@@ -131,6 +139,23 @@ results.glide = await page.evaluate(async () => {
   return checks;
 });
 
+// Space must toggle playback even when a button kept focus after a click (it used to
+// press that button instead, e.g. minimizing the window).
+results.spaceOnFocusedButton = await (async () => {
+  const minimize = await page.$(".window-controls button:first-child");
+  await page.evaluate(() => {
+    window.__minimizeClicks = 0;
+    document.querySelector(".window-controls button:first-child").addEventListener("click", () => window.__minimizeClicks++);
+  });
+  await minimize.click();
+  await page.evaluate(() => (window.__minimizeClicks = 0));
+  const label = () => page.$eval(".main-button", (b) => b.getAttribute("aria-label"));
+  const before = await label();
+  await page.keyboard.press("Space");
+  await new Promise((r) => setTimeout(r, 300));
+  return { toggled: before !== (await label()), buttonPressed: await page.evaluate(() => window.__minimizeClicks > 0) };
+})();
+
 await browser.close();
 
 const failures = [];
@@ -138,10 +163,14 @@ for (const [name, result] of Object.entries(results)) {
   if (result.maxMs > MAX_FRAME_MS) failures.push(`${name}: ${result.maxMs} ms frame`);
 }
 for (const name of ["queueOpen", "queueClose"]) {
-  if (results[name].mainWidthSteps < MIN_QUEUE_WIDTH_STEPS) failures.push(`${name}: layout snapped`);
+  if (results[name].mainWidthSteps > MAX_QUEUE_REFLOWS) failures.push(`${name}: content reflows every frame`);
+  if (results[name].panelSteps < MIN_QUEUE_PANEL_STEPS) failures.push(`${name}: panel snapped instead of sliding`);
 }
 if (results.cachedArtwork.instant !== results.cachedArtwork.cards) failures.push("cached artwork faded in");
 if (!results.switchingFlagCleared) failures.push("theme switch left transitions disabled");
+if (!results.spaceOnFocusedButton.toggled || results.spaceOnFocusedButton.buttonPressed) {
+  failures.push("space pressed the focused button instead of toggling playback");
+}
 for (const [name, check] of Object.entries(results.glide)) {
   if (!check.slides) failures.push(`${name} indicator jumps instead of sliding`);
   if (!check.settles) failures.push(`${name} indicator misses the selected option`);

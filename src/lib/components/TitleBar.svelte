@@ -8,9 +8,13 @@
   import Minus from "phosphor-svelte/lib/Minus";
   import Square from "phosphor-svelte/lib/Square";
   import Copy from "phosphor-svelte/lib/Copy";
+  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { siTelegram } from "simple-icons";
   import { i18n } from "$lib/i18n/index.svelte";
   import { nav } from "$lib/state/nav.svelte";
   import { search } from "$lib/state/search.svelte";
+
+  const AUTHOR_TELEGRAM_URL = "https://t.me/yeet17";
 
   const appWindow = getCurrentWindow();
   let maximized = $state(false);
@@ -73,20 +77,31 @@
     {/if}
   </label>
 
-  <div class="window-controls">
-    <button aria-label={i18n.t.window.minimize} title={i18n.t.window.minimize} onclick={() => appWindow.minimize()}>
-      <Minus />
-    </button>
+  <div class="end">
     <button
-      aria-label={maximized ? i18n.t.window.restore : i18n.t.window.maximize}
-      title={maximized ? i18n.t.window.restore : i18n.t.window.maximize}
-      onclick={() => appWindow.toggleMaximize()}
+      class="telegram"
+      aria-label={i18n.t.window.author}
+      title={i18n.t.window.author}
+      onclick={() => openUrl(AUTHOR_TELEGRAM_URL)}
     >
-      {#if maximized}<Copy />{:else}<Square />{/if}
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d={siTelegram.path} /></svg>
     </button>
-    <button class="close" aria-label={i18n.t.window.close} title={i18n.t.window.close} onclick={() => appWindow.close()}>
-      <X />
-    </button>
+
+    <div class="window-controls">
+      <button aria-label={i18n.t.window.minimize} title={i18n.t.window.minimize} onclick={() => appWindow.minimize()}>
+        <Minus />
+      </button>
+      <button
+        aria-label={maximized ? i18n.t.window.restore : i18n.t.window.maximize}
+        title={maximized ? i18n.t.window.restore : i18n.t.window.maximize}
+        onclick={() => appWindow.toggleMaximize()}
+      >
+        {#if maximized}<Copy />{:else}<Square />{/if}
+      </button>
+      <button class="close" aria-label={i18n.t.window.close} title={i18n.t.window.close} onclick={() => appWindow.close()}>
+        <X />
+      </button>
+    </div>
   </div>
 </header>
 
@@ -160,9 +175,43 @@
     color: var(--text);
   }
 
+  .end {
+    display: flex;
+    align-items: center;
+    justify-self: end;
+    align-self: stretch;
+    gap: 6px;
+  }
+
+  /* Deliberately monochrome: a brand-blue logo would compete with the accent color. */
+  .telegram {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    color: var(--text-faint);
+    transition:
+      color var(--fast) var(--ease),
+      transform var(--fast) var(--ease);
+  }
+
+  .telegram:hover {
+    color: var(--text-muted);
+  }
+
+  .telegram:active {
+    transform: scale(0.92);
+  }
+
+  .telegram svg {
+    width: 17px;
+    height: 17px;
+    fill: currentColor;
+  }
+
   .window-controls {
     display: flex;
-    justify-self: end;
     align-self: stretch;
   }
 
