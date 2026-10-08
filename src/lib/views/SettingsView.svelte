@@ -4,6 +4,7 @@
   import { openUrl } from "@tauri-apps/plugin-opener";
   import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
   import Check from "phosphor-svelte/lib/Check";
+  import { glide } from "$lib/glide";
   import { i18n } from "$lib/i18n/index.svelte";
   import { ACCENTS, LOCALES, settings, type Theme } from "$lib/state/settings.svelte";
 
@@ -32,7 +33,8 @@
 
   <section>
     <h2>{i18n.t.settings.language}</h2>
-    <div class="segmented" role="radiogroup" aria-label={i18n.t.settings.language}>
+    <div class="segmented" role="radiogroup" aria-label={i18n.t.settings.language} use:glide>
+      <span class="thumb" data-glide aria-hidden="true"></span>
       {#each LOCALES as locale (locale.id)}
         <button
           role="radio"
@@ -51,7 +53,8 @@
 
     <div class="field">
       <span class="label">{i18n.t.settings.theme}</span>
-      <div class="segmented" role="radiogroup" aria-label={i18n.t.settings.theme}>
+      <div class="segmented" role="radiogroup" aria-label={i18n.t.settings.theme} use:glide>
+        <span class="thumb" data-glide aria-hidden="true"></span>
         {#each themes as theme (theme.id)}
           <button
             role="radio"
@@ -66,7 +69,8 @@
 
     <div class="field">
       <span class="label">{i18n.t.settings.accent}</span>
-      <div class="swatches" role="radiogroup" aria-label={i18n.t.settings.accent}>
+      <div class="swatches" role="radiogroup" aria-label={i18n.t.settings.accent} use:glide>
+        <span class="ring" data-glide aria-hidden="true"></span>
         {#each ACCENTS as accent (accent.id)}
           <button
             class="swatch"
@@ -76,7 +80,7 @@
             style:--swatch={accent.color}
             onclick={() => update(() => (settings.accent = accent.id))}
           >
-            {#if settings.accent === accent.id}<Check weight="bold" />{/if}
+            <span class="check"><Check weight="bold" /></span>
           </button>
         {/each}
       </div>
@@ -162,36 +166,67 @@
   }
 
   .segmented {
+    position: relative;
     display: inline-flex;
     padding: 3px;
     border-radius: 999px;
     background: var(--surface-hover);
   }
 
+  /* One thumb slides under the options instead of each option toggling its own fill. */
+  .thumb {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 0;
+    width: var(--glide-w, 0);
+    border-radius: 999px;
+    background: var(--surface-raised);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+    transform: translateX(var(--glide-x, 0));
+  }
+
+  .segmented:global([data-glide-ready]) > .thumb {
+    transition:
+      transform var(--slow) var(--ease),
+      width var(--slow) var(--ease);
+  }
+
   .segmented button {
+    position: relative;
     height: 32px;
     padding: 0 16px;
     border-radius: 999px;
     color: var(--text-muted);
     font-weight: 500;
-    transition:
-      background-color var(--base) var(--ease),
-      color var(--base) var(--ease);
+    transition: color var(--base) var(--ease);
   }
 
-  .segmented button:hover {
-    color: var(--text);
-  }
-
+  .segmented button:hover,
   .segmented button[aria-checked="true"] {
-    background: var(--surface-raised);
     color: var(--text);
-    box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
   }
 
   .swatches {
+    position: relative;
     display: flex;
     gap: 10px;
+  }
+
+  .ring {
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    width: calc(var(--glide-w, 0px) + 8px);
+    height: calc(100% + 8px);
+    border: 2px solid var(--accent);
+    border-radius: 999px;
+    transform: translateX(var(--glide-x, 0));
+    pointer-events: none;
+  }
+
+  .swatches:global([data-glide-ready]) > .ring {
+    transition: transform var(--slow) var(--ease);
   }
 
   .swatch {
@@ -210,10 +245,18 @@
     transform: scale(0.92);
   }
 
-  .swatch[aria-checked="true"] {
-    box-shadow:
-      0 0 0 2px var(--surface),
-      0 0 0 4px var(--swatch);
+  .check {
+    display: grid;
+    opacity: 0;
+    transform: scale(0.6);
+    transition:
+      opacity var(--base) var(--ease),
+      transform var(--base) var(--ease);
+  }
+
+  .swatch[aria-checked="true"] .check {
+    opacity: 1;
+    transform: scale(1);
   }
 
   .switch {

@@ -108,6 +108,29 @@ results.themeToDark = await page.evaluate(() =>
 );
 results.switchingFlagCleared = await page.evaluate(() => !("switching" in document.documentElement.dataset));
 
+// Selection indicators must travel between options, not jump, and settle on the choice.
+results.glide = await page.evaluate(async () => {
+  const checks = {};
+  for (const [name, index, selector] of [["language", 0, ".thumb"], ["theme", 1, ".thumb"], ["accent", 2, ".ring"]]) {
+    const group = document.querySelectorAll("[role=radiogroup]")[index];
+    const indicator = group.querySelector(selector);
+    const x = () => new DOMMatrix(getComputedStyle(indicator).transform).m41;
+    const options = [...group.querySelectorAll("[role=radio]")];
+    const next = options.find((o) => o.getAttribute("aria-checked") !== "true" && o !== options[0]) ?? options[0];
+    const from = x();
+    next.click();
+    await window.__sleep(120);
+    const mid = x();
+    await window.__sleep(700);
+    const to = x();
+    checks[name] = {
+      slides: Math.min(from, to) < mid && mid < Math.max(from, to),
+      settles: Math.abs(to - next.offsetLeft) < 1,
+    };
+  }
+  return checks;
+});
+
 await browser.close();
 
 const failures = [];
@@ -119,6 +142,10 @@ for (const name of ["queueOpen", "queueClose"]) {
 }
 if (results.cachedArtwork.instant !== results.cachedArtwork.cards) failures.push("cached artwork faded in");
 if (!results.switchingFlagCleared) failures.push("theme switch left transitions disabled");
+for (const [name, check] of Object.entries(results.glide)) {
+  if (!check.slides) failures.push(`${name} indicator jumps instead of sliding`);
+  if (!check.settles) failures.push(`${name} indicator misses the selected option`);
+}
 
 console.table(
   Object.fromEntries(Object.entries(results).filter(([, r]) => typeof r === "object" && "maxMs" in r)),

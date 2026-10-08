@@ -68,7 +68,7 @@
   --slow: 0ms;
 }
 
-:root[data-switching] *,
+:root[data-switching] *:not([data-glide]),
 :root[data-switching] *::before,
 :root[data-switching] *::after {
   transition: none !important;

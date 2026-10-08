@@ -107,7 +107,7 @@ export const en = {
     motion: "Animations",
     motionHint: "Turn off to keep every transition instant.",
     about: "About",
-    aboutBody: "Open-source music player without ads. Licensed under GPL-3.0.",
+    aboutBody: "Open-source music player without ads. Licensed under GPL‑3.0.",
     sourceCode: "Source code",
   },
   errors: {
