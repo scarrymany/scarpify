@@ -41,6 +41,9 @@ mod stream_client {
 const VISITOR_DATA_MARKER: &str = "\"VISITOR_DATA\":\"";
 const STATUS_OK: &str = "OK";
 const STATUS_LOGIN_REQUIRED: &str = "LOGIN_REQUIRED";
+/// Fresh visitor ids to try before giving up on a stream.
+const STREAM_ATTEMPTS: usize = 3;
+const TAIL_PROBE_BYTES: u64 = 1024;
 /// AAC-LC: HE-AAC (itag 139) needs SBR, which Symphonia does not implement.
 const AAC_LC_CODEC: &str = "mp4a.40.2";
 
@@ -150,39 +153,47 @@ impl Youtube {
     }
 
     pub async fn stream(&self, video_id: &str) -> Result<ResolvedStream> {
-        let mut response = self.player(video_id, false).await?;
-        // A stale visitor id gets the bot check; a fresh one is accepted.
-        if response.playability_status.status == STATUS_LOGIN_REQUIRED {
-            response = self.player(video_id, true).await?;
+        let mut refresh_visitor = false;
+        for _ in 0..STREAM_ATTEMPTS {
+            let response = self.player(video_id, refresh_visitor).await?;
+            refresh_visitor = true;
+
+            let status = response.playability_status;
+            // A stale visitor id gets the bot check; a fresh one is accepted.
+            if status.status == STATUS_LOGIN_REQUIRED {
+                continue;
+            }
+            if status.status != STATUS_OK {
+                return Err(Error::Unavailable(status.reason.unwrap_or(status.status)));
+            }
+
+            let (url, size, gain) = pick_audio(response.streaming_data)?;
+            // Some visitor ids land in an experiment that serves only the first megabyte
+            // without a PO token. Checking the tail catches it before playback starts.
+            if self.is_fully_served(&url, size).await {
+                return Ok(ResolvedStream {
+                    gain,
+                    source: MediaSource::Youtube {
+                        url,
+                        user_agent: stream_client::USER_AGENT.to_owned(),
+                        size,
+                    },
+                    format_hint: "m4a",
+                });
+            }
         }
+        Err(Error::Unavailable("YouTube refused to serve this track, try again later".into()))
+    }
 
-        let status = response.playability_status;
-        if status.status != STATUS_OK {
-            return Err(Error::Unavailable(status.reason.unwrap_or(status.status)));
-        }
-
-        let format = response
-            .streaming_data
-            .into_iter()
-            .flat_map(|data| data.adaptive_formats)
-            .filter(|f| f.url.is_some() && f.mime_type.contains(AAC_LC_CODEC))
-            .max_by_key(|f| f.bitrate)
-            .ok_or_else(|| Error::Unavailable("no playable audio stream".into()))?;
-        let size = format
-            .content_length
-            .as_deref()
-            .and_then(|len| len.parse().ok())
-            .ok_or_else(|| Error::Unavailable("stream size unknown".into()))?;
-
-        Ok(ResolvedStream {
-            gain: format.loudness_db.map_or(1.0, normalization_gain),
-            source: MediaSource::Youtube {
-                url: format.url.unwrap_or_default(),
-                user_agent: stream_client::USER_AGENT.to_owned(),
-                size,
-            },
-            format_hint: "m4a",
-        })
+    async fn is_fully_served(&self, url: &str, size: u64) -> bool {
+        let start = size.saturating_sub(TAIL_PROBE_BYTES);
+        let probe = format!("{url}&range={start}-{}", size.saturating_sub(1));
+        self.http
+            .get(probe)
+            .header(USER_AGENT, stream_client::USER_AGENT)
+            .send()
+            .await
+            .is_ok_and(|r| r.status().is_success())
     }
 
     async fn player(&self, video_id: &str, refresh_visitor: bool) -> Result<PlayerResponse> {
@@ -264,6 +275,23 @@ fn parse_link(link: &str) -> Option<Link<'_>> {
     let (_, rest) = link.split_once(PLAYLIST_PARAM)?;
     let id = rest.split(|c: char| !is_id_char(c)).next()?;
     (!id.is_empty()).then_some(Link::Playlist(id))
+}
+
+/// Best AAC-LC stream: URL, byte size and loudness normalization gain.
+fn pick_audio(streaming_data: Option<StreamingData>) -> Result<(String, u64, f32)> {
+    let format = streaming_data
+        .into_iter()
+        .flat_map(|data| data.adaptive_formats)
+        .filter(|f| f.url.is_some() && f.mime_type.contains(AAC_LC_CODEC))
+        .max_by_key(|f| f.bitrate)
+        .ok_or_else(|| Error::Unavailable("no playable audio stream".into()))?;
+    let size = format
+        .content_length
+        .as_deref()
+        .and_then(|len| len.parse().ok())
+        .ok_or_else(|| Error::Unavailable("stream size unknown".into()))?;
+    let gain = format.loudness_db.map_or(1.0, normalization_gain);
+    Ok((format.url.unwrap_or_default(), size, gain))
 }
 
 fn extract_visitor_data(page: &str) -> Option<String> {

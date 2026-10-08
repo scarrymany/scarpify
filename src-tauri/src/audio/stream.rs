@@ -65,6 +65,11 @@ impl StreamBuffer {
         self.lock().total
     }
 
+    #[cfg(test)]
+    pub fn downloaded_len(&self) -> u64 {
+        self.lock().data.len() as u64
+    }
+
     /// Blocks until `len` bytes are available or the download ends.
     pub fn wait_for(&self, len: usize) -> Result<(), String> {
         let mut state = self.lock();

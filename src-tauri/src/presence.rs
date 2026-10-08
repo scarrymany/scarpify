@@ -22,9 +22,10 @@ const DISCORD_APP_ID: &str = match option_env!("SCARPIFY_DISCORD_APP_ID") {
 /// Discord accepts five activity updates per 20 seconds.
 const MIN_UPDATE_INTERVAL: Duration = Duration::from_secs(4);
 const RECONNECT_INTERVAL: Duration = Duration::from_secs(15);
-/// Art asset uploaded in the Developer Portal (Rich Presence, Art Assets); Discord draws it
-/// as a badge in the corner of the cover.
-const BADGE_ASSET_KEY: &str = "scarpify";
+/// The `scarpify` art asset of the Discord application, referenced by its CDN URL: Discord
+/// renders image URLs immediately, while asset keys can take a long time to propagate.
+/// Drawn as a badge in the corner of the cover.
+const BADGE_IMAGE: &str = "https://cdn.discordapp.com/app-assets/1557570425213423616/1557581447848525865.png";
 const BADGE_TEXT: &str = "SCARPIFY";
 /// Discord rejects activity strings outside 2..=128 characters.
 const MAX_TEXT_CHARS: usize = 128;
@@ -208,7 +209,7 @@ fn activity(now_playing: &NowPlaying, started_at_ms: i64) -> Activity<'_> {
         // The badge needs a large image to sit on; without a cover Discord shows the app icon.
         assets = assets
             .large_image(artwork)
-            .small_image(BADGE_ASSET_KEY)
+            .small_image(BADGE_IMAGE)
             .small_text(BADGE_TEXT);
         if let Some(album) = &now_playing.album {
             assets = assets.large_text(discord_text(album));
@@ -272,7 +273,7 @@ mod tests {
         assert_eq!(json["timestamps"]["start"], started);
         assert_eq!(json["timestamps"]["end"], started + 132_000);
         assert_eq!(json["assets"]["large_image"], "https://i1.sndcdn.com/artworks-x-t500x500.jpg");
-        assert_eq!(json["assets"]["small_image"], BADGE_ASSET_KEY);
+        assert_eq!(json["assets"]["small_image"], BADGE_IMAGE);
         assert_eq!(json["assets"]["small_text"], BADGE_TEXT);
         assert_eq!(json["details_url"], "https://soundcloud.com/daftpunk/get-lucky");
     }

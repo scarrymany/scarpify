@@ -169,7 +169,9 @@ mod live_tests {
             .try_seek(std::time::Duration::from_secs(SEEK_TO_SECONDS))
             .expect("seek");
         let samples = decoder.take(rate * channels * DECODE_SECONDS).count();
-        buffer.cancel();
+        // Some streams are cut after the first megabyte; only a full download proves playback.
+        buffer.wait_for(usize::MAX).expect("stream download was cut short");
+        assert_eq!(buffer.total_len(), Some(buffer.downloaded_len()));
         samples / (rate * channels)
     }
 
@@ -234,3 +236,4 @@ mod live_import_tests {
         }
     }
 }
+
