@@ -1,8 +1,8 @@
 <script lang="ts">
-  import Heart from "phosphor-svelte/lib/Heart";
   import ListPlus from "phosphor-svelte/lib/ListPlus";
   import Clock from "phosphor-svelte/lib/Clock";
   import Artwork from "./Artwork.svelte";
+  import LikeButton from "./LikeButton.svelte";
   import PlayPauseIcon from "./PlayPauseIcon.svelte";
   import ProviderBadge from "./ProviderBadge.svelte";
   import NowPlayingBars from "./NowPlayingBars.svelte";
@@ -112,16 +112,9 @@
         >
           <ListPlus />
         </button>
-        <button
-          class="icon-button like"
-          class:hover-only={!liked}
-          aria-pressed={liked}
-          aria-label={liked ? i18n.t.track.unlike : i18n.t.track.like}
-          title={liked ? i18n.t.track.unlike : i18n.t.track.like}
-          onclick={() => library.toggleLike(track)}
-        >
-          <Heart weight={liked ? "fill" : "regular"} />
-        </button>
+        <span class="like-slot" class:hover-only={!liked}>
+          <LikeButton {track} />
+        </span>
         <span class="time">{formatDuration(track.durationMs)}</span>
       </span>
     </div>
@@ -254,7 +247,7 @@
     opacity: 1;
   }
 
-  .like[aria-pressed="true"] {
-    color: var(--accent);
+  .like-slot {
+    display: inline-grid;
   }
 </style>

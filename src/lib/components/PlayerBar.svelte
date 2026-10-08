@@ -8,13 +8,12 @@
   import SpeakerHigh from "phosphor-svelte/lib/SpeakerHigh";
   import SpeakerLow from "phosphor-svelte/lib/SpeakerLow";
   import SpeakerSlash from "phosphor-svelte/lib/SpeakerSlash";
-  import Heart from "phosphor-svelte/lib/Heart";
   import Artwork from "./Artwork.svelte";
+  import LikeButton from "./LikeButton.svelte";
   import PlayPauseIcon from "./PlayPauseIcon.svelte";
   import ProviderBadge from "./ProviderBadge.svelte";
   import Slider from "./Slider.svelte";
   import { formatDuration, i18n } from "$lib/i18n/index.svelte";
-  import { library } from "$lib/state/library.svelte";
   import { player } from "$lib/state/player.svelte";
 
   interface Props {
@@ -28,7 +27,6 @@
   let scrubMs = $state<number | null>(null);
 
   const track = $derived(player.current);
-  const liked = $derived(track ? library.isLiked(track) : false);
   const shownPosition = $derived(scrubMs ?? player.positionMs);
   const silent = $derived(player.muted || player.volume === 0);
   const repeatLabel = $derived(player.repeat === "one" ? i18n.t.player.repeatOne : i18n.t.player.repeat);
@@ -43,15 +41,7 @@
         <span class="artists">{track.artists.join(", ")}</span>
         <ProviderBadge provider={track.provider} />
       </div>
-      <button
-        class="icon-button"
-        aria-pressed={liked}
-        aria-label={liked ? i18n.t.track.unlike : i18n.t.track.like}
-        title={liked ? i18n.t.track.unlike : i18n.t.track.like}
-        onclick={() => library.toggleLike(track)}
-      >
-        <Heart weight={liked ? "fill" : "regular"} />
-      </button>
+      <LikeButton {track} />
     {:else}
       <span class="idle">{i18n.t.player.nothing}</span>
     {/if}

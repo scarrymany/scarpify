@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { settings } from "$lib/state/settings.svelte";
 import { flush, makeTrack, makeTracks } from "../../test/fixtures";
 import { invoke } from "../../test/tauri";
+import { library } from "$lib/state/library.svelte";
 import ImportDialog from "./ImportDialog.svelte";
+import LikeButton from "./LikeButton.svelte";
 import PlayPauseIcon from "./PlayPauseIcon.svelte";
 import ProviderBadge from "./ProviderBadge.svelte";
 import Slider from "./Slider.svelte";
@@ -140,5 +142,25 @@ describe("ImportDialog", () => {
     await flush();
     expect(invoke).toHaveBeenCalledWith("import_playlist", { link: "https://soundcloud.com/dabbackwood/sets/crests" });
     expect(closed).toBe(true);
+  });
+});
+
+describe("LikeButton", () => {
+  it("bounces only when clicked, never when an already liked track renders", async () => {
+    const track = makeTrack(77);
+    if (!library.isLiked(track)) library.toggleLike(track);
+
+    const { container } = render(LikeButton, { track });
+    const heart = container.querySelector(".heart") as HTMLElement;
+    expect(heart.dataset.bounce).toBeUndefined();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Remove from Liked tracks" }));
+    expect(heart.dataset.bounce).toBe("unlike");
+    expect(library.isLiked(track)).toBe(false);
+
+    await fireEvent.animationEnd(heart);
+    await fireEvent.click(screen.getByRole("button", { name: "Save to Liked tracks" }));
+    expect(heart.dataset.bounce).toBe("like");
+    expect(screen.getByRole("button", { name: "Remove from Liked tracks" })).toHaveClass("liked");
   });
 });
