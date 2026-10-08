@@ -13,8 +13,12 @@ use discord_rich_presence::{DiscordIpc, DiscordIpcClient};
 use serde::Deserialize;
 
 /// Application registered in the Discord Developer Portal; its name and icon are what
-/// Discord shows as "Listening to SCARPIFY". Builds without it simply skip Rich Presence.
-const DISCORD_APP_ID: Option<&str> = option_env!("SCARPIFY_DISCORD_APP_ID");
+/// Discord shows as "Listening to SCARPIFY". Forks can point to their own application
+/// with `SCARPIFY_DISCORD_APP_ID` at build time.
+const DISCORD_APP_ID: &str = match option_env!("SCARPIFY_DISCORD_APP_ID") {
+    Some(id) => id,
+    None => "1557570425213423616",
+};
 /// Discord accepts five activity updates per 20 seconds.
 const MIN_UPDATE_INTERVAL: Duration = Duration::from_secs(4);
 const RECONNECT_INTERVAL: Duration = Duration::from_secs(15);
@@ -47,12 +51,10 @@ pub struct Presence {
 impl Presence {
     pub fn spawn() -> Self {
         let (commands, receiver) = mpsc::channel();
-        if let Some(app_id) = DISCORD_APP_ID {
-            thread::Builder::new()
-                .name("discord-presence".into())
-                .spawn(move || Worker::new(app_id).run(receiver))
-                .expect("failed to spawn presence thread");
-        }
+        thread::Builder::new()
+            .name("discord-presence".into())
+            .spawn(move || Worker::new(DISCORD_APP_ID).run(receiver))
+            .expect("failed to spawn presence thread");
         Self { commands }
     }
 
@@ -270,5 +272,33 @@ mod tests {
         assert_eq!(discord_text("A"), "A ");
         assert_eq!(discord_text("  Song  "), "Song");
         assert_eq!(discord_text(&"x".repeat(300)).chars().count(), MAX_TEXT_CHARS);
+    }
+}
+
+#[cfg(test)]
+mod live_tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "requires a running Discord client"]
+    fn shows_activity_in_discord() {
+        let mut client = DiscordIpcClient::new(DISCORD_APP_ID);
+        client.connect().expect("Discord IPC is not reachable");
+        let now_playing = NowPlaying {
+            title: "Get Lucky".into(),
+            artists: vec!["Daft Punk".into(), "Pharrell Williams".into()],
+            album: Some("Random Access Memories".into()),
+            artwork: Some("https://i1.sndcdn.com/artworks-000045765973-c2x8ko-t500x500.jpg".into()),
+            url: Some("https://soundcloud.com/daftpunk".into()),
+            position_ms: 22_000,
+            duration_ms: Some(248_000),
+        };
+        client
+            .set_activity(activity(&now_playing, unix_ms() - 22_000))
+            .expect("Discord rejected the activity");
+        println!("activity set, visible for 20 s");
+        std::thread::sleep(Duration::from_secs(20));
+        client.clear_activity().unwrap();
+        client.close().unwrap();
     }
 }
