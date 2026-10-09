@@ -120,6 +120,19 @@ cargo test -- --ignored --nocapture # live tests against all providers
 
 `npm run dev` opened in a regular browser runs the interface on demo data, without Tauri.
 
+## Star History
+
+If SCARPIFY is useful to you, a star helps other people find it.
+
+<p align="center">
+<a href="https://star-history.com/#scarrymany/scarpify&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=scarrymany/scarpify&type=Date&theme=dark">
+    <img src="https://api.star-history.com/svg?repos=scarrymany/scarpify&type=Date" width="720" alt="SCARPIFY star history">
+  </picture>
+</a>
+</p>
+
 ## Contact
 
 Questions and ideas: open an [issue](https://github.com/scarrymany/scarpify/issues) or write to the author on [Telegram](https://t.me/yeet17).

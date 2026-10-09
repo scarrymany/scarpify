@@ -96,6 +96,19 @@ npm run tauri build    # установщик в src-tauri/target/release/bundle
 
 Тесты описаны в [английском README](README.md#building-from-source).
 
+## История звёзд
+
+Если SCARPIFY вам пригодился, поставьте звезду: так его проще найти другим.
+
+<p align="center">
+<a href="https://star-history.com/#scarrymany/scarpify&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=scarrymany/scarpify&type=Date&theme=dark">
+    <img src="https://api.star-history.com/svg?repos=scarrymany/scarpify&type=Date" width="720" alt="История звёзд SCARPIFY">
+  </picture>
+</a>
+</p>
+
 ## Связь
 
 Вопросы и идеи: [issues](https://github.com/scarrymany/scarpify/issues) или автору в [Telegram](https://t.me/yeet17).
