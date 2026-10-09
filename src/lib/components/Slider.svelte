@@ -105,15 +105,9 @@
   .fill {
     position: absolute;
     inset: 0;
-    background: var(--text);
+    background: var(--accent);
     transform-origin: left;
     transform: scaleX(var(--ratio));
-  }
-
-  .slider:hover .fill,
-  .slider:focus-visible .fill,
-  .dragging .fill {
-    background: var(--accent);
   }
 
   .thumb {
