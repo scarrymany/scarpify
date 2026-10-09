@@ -9,7 +9,7 @@ import { writeFileSync } from "node:fs";
 
 const MEASUREMENTS = {
   cpu: { scarpify: 1.3, spotify: 2.7, max: 3, step: 1 },
-  memory: { scarpify: 240, spotify: 835, max: 1000, step: 250 },
+  memory: { scarpify: 240, scarpifyLite: 200, spotify: 835, max: 1000, step: 250 },
 };
 
 const TEXT = {
@@ -18,6 +18,7 @@ const TEXT = {
     title: "Lighter than Spotify",
     cpu: "CPU, %",
     memory: "Memory, MB",
+    lite: "no animations",
     note: "Same Windows 11 PC, music playing, every process of each app counted",
     number: (value) => String(value),
   },
@@ -26,6 +27,7 @@ const TEXT = {
     title: "Легче, чем Spotify",
     cpu: "Процессор, %",
     memory: "Память, МБ",
+    lite: "без анимаций",
     note: "Один ПК с Windows 11, играет музыка, учтены все процессы приложений",
     number: (value) => String(value).replace(".", ","),
   },
@@ -37,10 +39,11 @@ const FONT_FILES = [
 ];
 
 const WIDTH = 900;
-const HEIGHT = 560;
+const HEIGHT = 590;
 const INK = "#1b1b1f";
 const ACCENT = "#ec6a45";
 const MUTED = "#8a8a93";
+const ACCENT_LIGHT = "#f2a48b";
 
 /** Deterministic pseudo-random numbers, so regenerating gives an identical image. */
 function random(seed) {
@@ -125,15 +128,21 @@ function chart(left, label, data, t) {
   }
 
   const bars = [
-    { name: "SCARPIFY", value: data.scarpify, color: ACCENT, x: axisX + 50 },
-    { name: "Spotify", value: data.spotify, color: MUTED, x: axisX + 170 },
-  ];
-  for (const item of bars) {
+    { name: "SCARPIFY", value: data.scarpify, color: ACCENT },
+    { name: "SCARPIFY", caption: t.lite, value: data.scarpifyLite, color: ACCENT_LIGHT },
+    { name: "Spotify", value: data.spotify, color: MUTED },
+  ].filter((item) => item.value !== undefined);
+  const slot = (right - axisX) / bars.length;
+  const barWidth = bars.length > 2 ? 64 : 76;
+  bars.forEach((item, index) => {
+    const x = axisX + slot * index + (slot - barWidth) / 2;
+    const center = x + barWidth / 2;
     const height = (item.value / data.max) * plotHeight;
-    parts.push(bar(item.x, baseline, 76, height, item.color));
-    parts.push(text(item.x + 38, baseline - height - 14, decimal(t.number(item.value)), { size: 30, color: item.color, heavy: true }));
-    parts.push(text(item.x + 38, baseline + 32, item.name, { size: 21 }));
-  }
+    parts.push(bar(x, baseline, barWidth, height, item.color));
+    parts.push(text(center, baseline - height - 14, decimal(t.number(item.value)), { size: 30, color: item.color, heavy: true }));
+    parts.push(text(center, baseline + 32, item.name, { size: 21 }));
+    if (item.caption) parts.push(text(center, baseline + 54, item.caption, { size: 17, color: MUTED }));
+  });
   return parts.join("");
 }
 
@@ -156,14 +165,20 @@ function mark(cx, cy) {
   return ring.join("") + strokes.join("");
 }
 
-function legend(x, y) {
-  const swatch = (sx, color) => `<rect x="${sx}" y="${y + 17}" width="14" height="14" rx="3" fill="${color}"/>`;
+const LEGEND_WIDTH = 430;
+
+function legend(x, y, t) {
+  const entries = [
+    { label: "SCARPIFY", color: ACCENT, offset: 18 },
+    { label: t.lite, color: ACCENT_LIGHT, offset: 154 },
+    { label: "Spotify", color: MUTED, offset: 318 },
+  ];
   return [
-    sketchRect(x, y, 270, 48, { width: 2.6 }),
-    swatch(x + 18, ACCENT),
-    text(x + 42, y + 31, "SCARPIFY", { size: 21, anchor: "start" }),
-    swatch(x + 160, MUTED),
-    text(x + 184, y + 31, "Spotify", { size: 21, anchor: "start" }),
+    sketchRect(x, y, LEGEND_WIDTH, 48, { width: 2.6 }),
+    ...entries.map(({ label, color, offset }) =>
+      `<rect x="${x + offset}" y="${y + 17}" width="14" height="14" rx="3" fill="${color}"/>` +
+      text(x + offset + 24, y + 31, label, { size: 21, anchor: "start" }),
+    ),
   ].join("");
 }
 
@@ -180,12 +195,12 @@ async function fontFaces() {
 const fonts = await fontFaces();
 
 for (const t of Object.values(TEXT)) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="${t.title}: CPU ${t.number(MEASUREMENTS.cpu.scarpify)}% vs ${t.number(MEASUREMENTS.cpu.spotify)}%, ${t.number(MEASUREMENTS.memory.scarpify)} vs ${t.number(MEASUREMENTS.memory.spotify)} MB">
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="${t.title}: CPU ${t.number(MEASUREMENTS.cpu.scarpify)}% vs ${t.number(MEASUREMENTS.cpu.spotify)}%, ${t.number(MEASUREMENTS.memory.scarpify)} (${t.lite}: ${t.number(MEASUREMENTS.memory.scarpifyLite)}) vs ${t.number(MEASUREMENTS.memory.spotify)} MB">
 <style>${fonts}text{font-family:Sketch,"Comic Sans MS",cursive}</style>
 <rect width="${WIDTH}" height="${HEIGHT}" fill="#ffffff"/>
 ${mark(WIDTH / 2 - 150, 62)}
 ${text(WIDTH / 2 + 30, 74, t.title, { size: 36 })}
-${legend(WIDTH / 2 - 135, 98)}
+${legend((WIDTH - LEGEND_WIDTH) / 2, 98, t)}
 ${chart(20, t.cpu, MEASUREMENTS.cpu, t)}
 ${chart(460, t.memory, MEASUREMENTS.memory, t)}
 ${text(WIDTH - 24, HEIGHT - 18, t.note, { size: 17, color: MUTED, anchor: "end" })}

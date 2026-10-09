@@ -33,10 +33,10 @@ Music lives on several services, and each of them wants an account, a subscripti
 ## Lighter than Spotify
 
 <p align="center">
-  <img src="docs/resources.svg" width="720" alt="SCARPIFY uses 1.3% CPU and about 240 MB of memory while playing; Spotify uses 2.7% and 835 MB">
+  <img src="docs/resources.svg" width="720" alt="SCARPIFY uses 1.3% CPU and about 240 MB of memory while playing (200 MB with animations off); Spotify uses 2.7% and 835 MB">
 </p>
 
-Measured on the same Windows 11 PC while playing music, summing every process of each app (for SCARPIFY that includes the WebView2 interface processes). The Rust core alone takes about 11 MB.
+Measured on the same Windows 11 PC while playing music, summing every process of each app (for SCARPIFY that includes the WebView2 interface processes). With animations turned off in Settings, memory drops to about 200 MB. The Rust core alone takes about 11 MB.
 
 ## Features
 
