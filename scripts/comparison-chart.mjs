@@ -1,8 +1,8 @@
 /**
  * Draws the README resource comparison in the hand-sketched style of star-history.com charts.
  *
- * Usage: `node scripts/comparison-chart.mjs`. Writes docs/comparison.svg (English) and
- * docs/comparison.ru.svg (Russian). Update MEASUREMENTS after measuring a new release.
+ * Usage: `node scripts/comparison-chart.mjs`. Writes docs/resources.svg (English) and
+ * docs/resources.ru.svg (Russian). Update MEASUREMENTS after measuring a new release.
  * The Neucha font (SIL Open Font License) is embedded so GitHub renders it inside <img>.
  */
 import { writeFileSync } from "node:fs";
@@ -14,7 +14,7 @@ const MEASUREMENTS = {
 
 const TEXT = {
   en: {
-    file: "docs/comparison.svg",
+    file: "docs/resources.svg",
     title: "Lighter than Spotify",
     cpu: "CPU, %",
     memory: "Memory, MB",
@@ -22,7 +22,7 @@ const TEXT = {
     number: (value) => String(value),
   },
   ru: {
-    file: "docs/comparison.ru.svg",
+    file: "docs/resources.ru.svg",
     title: "Легче, чем Spotify",
     cpu: "Процессор, %",
     memory: "Память, МБ",
