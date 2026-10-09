@@ -8,9 +8,11 @@
     oncommit: (value: number) => void;
     step?: number;
     disabled?: boolean;
+    /** Value advances on its own (playback): glide between updates instead of jumping. */
+    flowing?: boolean;
   }
 
-  let { value, max, label, oninput, oncommit, step = max / 100, disabled = false }: Props = $props();
+  let { value, max, label, oninput, oncommit, step = max / 100, disabled = false, flowing = false }: Props = $props();
 
   let track: HTMLDivElement;
   let dragValue = $state<number | null>(null);
@@ -57,6 +59,7 @@
   bind:this={track}
   class="slider"
   class:dragging={dragValue !== null}
+  class:flowing
   class:disabled
   role="slider"
   tabindex={disabled ? -1 : 0}
@@ -122,6 +125,18 @@
     opacity: 0;
     transform: scale(0.6);
     transition:
+      opacity var(--fast) var(--ease),
+      transform var(--fast) var(--ease);
+  }
+
+  /* Matches the engine's 250 ms position reports, so the bar never stops between them. */
+  .flowing:not(.dragging) .fill {
+    transition: transform 260ms linear;
+  }
+
+  .flowing:not(.dragging) .thumb {
+    transition:
+      left 260ms linear,
       opacity var(--fast) var(--ease),
       transform var(--fast) var(--ease);
   }

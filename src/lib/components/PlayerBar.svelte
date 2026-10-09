@@ -93,6 +93,7 @@
         step={5000}
         label={i18n.t.track.duration}
         disabled={!track || player.durationMs === 0 || player.status === "loading"}
+        flowing={player.status === "playing"}
         oninput={(v) => (scrubMs = v)}
         oncommit={(v) => {
           scrubMs = null;

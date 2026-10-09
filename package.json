@@ -1,6 +1,6 @@
 {
   "name": "scarpify",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Ad-free open-source music player for YouTube Music and SoundCloud",
   "type": "module",
   "scripts": {

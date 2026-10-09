@@ -45,9 +45,6 @@ class Player {
   #loadId = 0;
   /** Whether the engine holds a decoded track that `resume` can continue. */
   #engineLoaded = false;
-  #anchorMs = 0;
-  #anchorAt = 0;
-  #frame = 0;
   #prefetchTimer: ReturnType<typeof setTimeout> | undefined;
   #prefetchedAt = new Map<string, number>();
 
@@ -154,7 +151,7 @@ class Player {
   seek(positionMs: number): void {
     if (!this.current) return;
     const clamped = Math.max(0, Math.min(positionMs, this.durationMs || positionMs));
-    this.#setAnchor(clamped);
+    this.#setPosition(clamped);
     void api.seek(clamped);
     if (this.status === "playing") this.#syncPresence();
   }
@@ -216,8 +213,7 @@ class Player {
     const loadId = ++this.#loadId;
     this.status = "loading";
     this.#engineLoaded = false;
-    this.#setAnchor(0);
-    this.#stopClock();
+    this.#setPosition(0);
 
     try {
       await api.play(track);
@@ -234,23 +230,20 @@ class Player {
       case "playing":
         this.#engineLoaded = true;
         this.status = "playing";
-        this.#setAnchor(event.positionMs);
-        this.#startClock();
+        this.#setPosition(event.positionMs);
         this.#syncPresence();
         if (this.upcoming[0]) this.prefetch(this.upcoming[0]);
         break;
       case "paused":
         this.status = "paused";
-        this.#setAnchor(event.positionMs);
-        this.#stopClock();
+        this.#setPosition(event.positionMs);
         this.#syncPresence();
         break;
       case "progress":
-        this.#setAnchor(event.positionMs);
+        this.#setPosition(event.positionMs);
         break;
       case "ended":
         this.#engineLoaded = false;
-        this.#stopClock();
         if (this.repeat === "one") void this.#load();
         else if (this.index + 1 < this.queue.length || this.repeat === "all") this.next();
         else {
@@ -268,26 +261,12 @@ class Player {
     return this.muted ? 0 : this.volume;
   }
 
-  #setAnchor(positionMs: number): void {
-    this.#anchorMs = positionMs;
-    this.#anchorAt = performance.now();
-    this.positionMs = positionMs;
-  }
-
-  /** The engine reports position four times a second; frames in between are interpolated. */
-  #startClock(): void {
-    this.#stopClock();
-    const tick = () => {
-      const elapsed = performance.now() - this.#anchorAt;
-      const position = this.#anchorMs + elapsed;
-      this.positionMs = this.durationMs > 0 ? Math.min(position, this.durationMs) : position;
-      this.#frame = requestAnimationFrame(tick);
-    };
-    this.#frame = requestAnimationFrame(tick);
-  }
-
-  #stopClock(): void {
-    cancelAnimationFrame(this.#frame);
+  /**
+   * The engine reports position four times a second. The progress bar glides between
+   * reports with a compositor transition, so no JavaScript runs per frame.
+   */
+  #setPosition(positionMs: number): void {
+    this.positionMs = this.durationMs > 0 ? Math.min(positionMs, this.durationMs) : positionMs;
   }
 }
 
