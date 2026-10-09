@@ -1,8 +1,12 @@
 name: Release
 
+# Run manually after pushing a version tag: builds the installer and drafts the release.
 on:
-  push:
-    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag to build, e.g. v0.2.0"
+        required: true
 
 permissions:
   contents: write
@@ -12,6 +16,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
 
       - uses: actions/setup-node@v4
         with:
@@ -30,7 +36,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: SCARPIFY ${{ github.ref_name }}
+          tagName: ${{ inputs.tag }}
+          releaseName: SCARPIFY ${{ inputs.tag }}
           releaseBody: See the commit history for changes in this release.
           releaseDraft: true

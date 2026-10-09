@@ -1,0 +1,11 @@
+name: Feature request
+description: An idea for SCARPIFY
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: What you would like and why it would help.
+    validations:
+      required: true

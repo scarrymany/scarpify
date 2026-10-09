@@ -8,6 +8,7 @@
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import type { LibrarySnapshot, OutputDevice, ProviderResult, SavedCollection, Track } from "$lib/types";
+import { version } from "../../../package.json";
 
 interface Fixture {
   search?: { youtube: Track[]; soundcloud: Track[] };
@@ -167,7 +168,7 @@ mockIPC(
         return null;
       }
       case "plugin:app|version":
-        return "preview";
+        return version;
       default:
         return null;
     }
