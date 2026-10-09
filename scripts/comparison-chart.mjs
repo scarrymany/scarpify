@@ -96,9 +96,15 @@ function bar(x, baseline, width, height, color) {
   return hachure(x, top, width, height, color) + sketchRect(x, top, width, height, { color, width: 2.4, wobble: 1 });
 }
 
-function text(x, y, content, { size = 22, color = INK, anchor = "middle", rotate = 0 } = {}) {
+function text(x, y, content, { size = 22, color = INK, anchor = "middle", rotate = 0, heavy = false } = {}) {
   const transform = rotate ? ` transform="rotate(${rotate} ${x} ${y})"` : "";
-  return `<text x="${x}" y="${y}" font-size="${size}" fill="${color}" text-anchor="${anchor}"${transform}>${content}</text>`;
+  const outline = heavy ? ` stroke="${color}" stroke-width="1.2" stroke-linejoin="round"` : "";
+  return `<text x="${x}" y="${y}" font-size="${size}" fill="${color}" text-anchor="${anchor}"${outline}${transform}>${content}</text>`;
+}
+
+/** Neucha has no glyphs for "." and ",", so the decimal separator is taken from a system font. */
+function decimal(formatted) {
+  return formatted.replace(/[.,]/, (separator) => `<tspan font-family="Arial,sans-serif" font-weight="700">${separator}</tspan>`);
 }
 
 /** One small bar chart with hand-drawn axes, ticks and value labels. */
@@ -125,7 +131,7 @@ function chart(left, label, data, t) {
   for (const item of bars) {
     const height = (item.value / data.max) * plotHeight;
     parts.push(bar(item.x, baseline, 76, height, item.color));
-    parts.push(text(item.x + 38, baseline - height - 14, t.number(item.value), { size: 26, color: item.color }));
+    parts.push(text(item.x + 38, baseline - height - 14, decimal(t.number(item.value)), { size: 30, color: item.color, heavy: true }));
     parts.push(text(item.x + 38, baseline + 32, item.name, { size: 21 }));
   }
   return parts.join("");
