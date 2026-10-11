@@ -65,17 +65,22 @@ async fn import_playlist(link: String, state: State<'_, AppState>) -> Result<Sav
 async fn play(app: AppHandle, track: Track, state: State<'_, AppState>) -> Result<()> {
     let generation = state.engine.begin_load();
     #[cfg(target_os = "android")]
-    mobile::prepare(&app, &track).await?;
+    if let Err(error) = mobile::prepare(&app, &track).await {
+        state.engine.fail_load(generation);
+        return Err(error);
+    }
     #[cfg(not(target_os = "android"))]
     let _ = app;
-    match start_playback(&state, &track, generation).await {
+    let result = match start_playback(&state, &track, generation).await {
         // A cached URL can expire or be refused by the CDN; one fresh resolution fixes that.
         Err(err) if !matches!(err, Error::Cancelled) => {
             state.sources.forget_stream(&track);
             start_playback(&state, &track, generation).await
         }
         result => result,
-    }
+    };
+    if result.is_err() { state.engine.fail_load(generation); }
+    result
 }
 
 async fn start_playback(state: &AppState, track: &Track, generation: u64) -> Result<()> {

@@ -123,6 +123,16 @@ impl AudioEngine {
         generation
     }
 
+    /// Release playback/service resources when the active provider/decode attempt fails.
+    /// A stale failure must never stop a newer selection.
+    pub fn fail_load(&self, generation: u64) {
+        let mut current = lock(&self.current);
+        if generation != self.generation.load(Ordering::Acquire) { return; }
+        self.generation.fetch_add(1, Ordering::AcqRel);
+        if let Some(previous) = current.take() { previous.buffer.cancel(); }
+        self.send(Command::StopAndNotify);
+    }
+
     pub async fn load(&self, request: LoadRequest, generation: u64) -> Result<()> {
         let current = Current {
             buffer: StreamBuffer::new(),
@@ -493,6 +503,19 @@ mod lifecycle_tests {
         engine.begin_load();
         assert!(matches!(engine.load(request(), second).await, Err(Error::Cancelled)));
         assert!(lock(&engine.current).is_none());
+    }
+
+    #[test]
+    fn failed_load_releases_current_resources_but_ignores_stale_failure() {
+        let (engine, commands) = engine();
+        let old = engine.begin_load();
+        let active = engine.begin_load();
+        while commands.try_recv().is_ok() {}
+        engine.fail_load(old);
+        assert!(commands.try_recv().is_err());
+        engine.fail_load(active);
+        assert!(matches!(commands.try_recv(), Ok(Command::StopAndNotify)));
+        assert_ne!(engine.generation.load(Ordering::Acquire), active);
     }
 
     #[test]
