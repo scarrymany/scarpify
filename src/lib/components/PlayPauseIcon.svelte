@@ -17,7 +17,7 @@
 
 <svg viewBox="0 0 24 24" aria-hidden="true">
   {#each shape as d, i (i)}
-    <path style:d={`path("${d}")`} />
+    <path {d} style:d={`path("${d}")`} />
   {/each}
 </svg>
 

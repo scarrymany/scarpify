@@ -78,8 +78,13 @@ describe("PlayPauseIcon", () => {
   it("morphs between two shapes with matching point counts", async () => {
     const { container, rerender } = render(PlayPauseIcon, { playing: false });
     const play = shapes(container);
+    const attributes = () => [...container.querySelectorAll("path")].map((p) => p.getAttribute("d"));
+    const fallbackPlay = attributes();
+    expect(fallbackPlay.every((d) => d?.startsWith("M"))).toBe(true);
     await rerender({ playing: true });
     const pause = shapes(container);
+    expect(attributes()).not.toEqual(fallbackPlay);
+    expect(attributes().every((d) => d?.startsWith("M"))).toBe(true);
 
     expect(play).toHaveLength(2);
     expect(pause).not.toEqual(play);
