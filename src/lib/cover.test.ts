@@ -6,7 +6,7 @@ afterEach(() => { vi.restoreAllMocks(); document.body.innerHTML = ""; });
 describe("native cover chooser lifecycle", () => {
   it("keeps the chooser input attached until WebKit reports cancellation", async () => {
     let chooser: HTMLInputElement | undefined;
-    vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(function () {
+    vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(function (this: HTMLInputElement) {
       chooser = this;
       expect(this.isConnected).toBe(true);
     });
@@ -18,7 +18,7 @@ describe("native cover chooser lifecycle", () => {
   });
 
   it("cleans up when the chooser returns no file", async () => {
-    vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(function () {
+    vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(function (this: HTMLInputElement) {
       this.dispatchEvent(new Event("change"));
     });
     expect(await pickCover()).toBeNull();
