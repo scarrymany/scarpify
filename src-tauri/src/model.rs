@@ -62,3 +62,16 @@ impl From<Result<Vec<Track>, crate::error::Error>> for ProviderResult {
         }
     }
 }
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct NowPlaying {
+    pub title: String,
+    pub artists: Vec<String>,
+    pub album: Option<String>,
+    pub artwork: Option<String>,
+    pub url: Option<String>,
+    pub position_ms: u64,
+    pub duration_ms: Option<u64>,
+}
+

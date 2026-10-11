@@ -2,6 +2,10 @@ mod audio;
 mod error;
 mod library;
 mod model;
+#[cfg(not(target_os = "android"))]
+mod presence;
+#[cfg(target_os = "android")]
+#[path = "presence_android.rs"]
 mod presence;
 mod sources;
 

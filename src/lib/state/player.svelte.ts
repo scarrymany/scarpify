@@ -1,3 +1,4 @@
+import { supportsDiscordPresence } from "$lib/platform";
 import { api, errorMessage, onPlayerEvent } from "$lib/api";
 import { format, i18n } from "$lib/i18n/index.svelte";
 import { trackKey, type PlayerEvent, type Track } from "$lib/types";
@@ -55,6 +56,7 @@ class Player {
 
   /** Discord shows the track while it plays; pausing or stopping hides it, like Spotify. */
   #syncPresence(): void {
+    if (!supportsDiscordPresence) return;
     const track = this.current;
     if (this.status !== "playing" || !track) {
       void api.updatePresence(null);

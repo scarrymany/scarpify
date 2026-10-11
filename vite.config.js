@@ -7,6 +7,7 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(() => ({
   plugins: [sveltekit()],
+  define: { "import.meta.env.VITE_NATIVE_PLATFORM": JSON.stringify(process.env.TAURI_ENV_PLATFORM || "browser") },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
