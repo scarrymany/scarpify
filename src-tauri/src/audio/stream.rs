@@ -74,7 +74,6 @@ impl StreamBuffer {
         self.lock().total
     }
 
-    #[cfg(test)]
     pub fn downloaded_len(&self) -> u64 {
         self.lock().data.len() as u64
     }
@@ -101,8 +100,7 @@ impl StreamBuffer {
     fn set_total(&self, total: u64) {
         let mut state = self.lock();
         state.total = Some(total);
-        let additional = (total as usize).saturating_sub(state.data.len());
-        state.data.reserve(additional);
+        // Content lengths are untrusted; allocate only as bytes actually arrive.
     }
 
     fn finish(&self, failure: Option<String>) {
@@ -226,6 +224,9 @@ async fn download_ranged(http: &Client, url: &str, buffer: &StreamBuffer) -> Res
             }
             Ok(RangeOutcome::Complete) => return Ok(()),
             Err(err) => {
+                // The decoder may already have consumed part of this response. Resume
+                // after those bytes instead of replaying the failed range from its start.
+                offset = buffer.downloaded_len();
                 attempt += 1;
                 if attempt >= MAX_ATTEMPTS {
                     return Err(err);
@@ -264,13 +265,16 @@ async fn download_youtube(
             .header(ORIGIN, YOUTUBE_ORIGIN)
             .header(REFERER, YOUTUBE_REFERER);
 
-        match fetch_body(request, buffer).await {
+        match fetch_body(request, buffer, end - offset + 1).await {
             Ok(0) => return Err(format!("empty chunk at {offset}")),
             Ok(received) => {
                 attempt = 0;
                 offset += received;
             }
             Err(err) => {
+                // The decoder may already have consumed part of this response. Resume
+                // after those bytes instead of replaying the failed range from its start.
+                offset = buffer.downloaded_len();
                 attempt += 1;
                 if attempt >= MAX_ATTEMPTS {
                     return Err(err);
@@ -283,7 +287,7 @@ async fn download_youtube(
 }
 
 /// Streams a response body into the buffer, returning the number of bytes received.
-async fn fetch_body(request: reqwest::RequestBuilder, buffer: &StreamBuffer) -> Result<u64, String> {
+async fn fetch_body(request: reqwest::RequestBuilder, buffer: &StreamBuffer, max_bytes: u64) -> Result<u64, String> {
     let mut response = request
         .send()
         .await
@@ -295,6 +299,7 @@ async fn fetch_body(request: reqwest::RequestBuilder, buffer: &StreamBuffer) -> 
         if buffer.is_cancelled() {
             break;
         }
+        if received + chunk.len() as u64 > max_bytes { return Err("response exceeds requested range".into()); }
         buffer.push(&chunk);
         received += chunk.len() as u64;
     }
@@ -334,25 +339,35 @@ async fn fetch_range(
         return Ok(RangeOutcome::Complete);
     }
 
-    let total = response
-        .headers()
-        .get(CONTENT_RANGE)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.rsplit('/').next())
-        .and_then(|v| v.parse::<u64>().ok())
-        .ok_or("missing Content-Range total")?;
-    if offset == 0 {
-        buffer.set_total(total);
+    if response.status() != StatusCode::PARTIAL_CONTENT {
+        return Err("unexpected range response status".into());
     }
+    let range = response.headers().get(CONTENT_RANGE).and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("bytes ")).ok_or("missing Content-Range")?;
+    let (bounds, total) = range.split_once('/').ok_or("invalid Content-Range")?;
+    let (start, end) = bounds.split_once('-').ok_or("invalid Content-Range bounds")?;
+    let start = start.parse::<u64>().map_err(|_| "invalid range start")?;
+    let end = end.parse::<u64>().map_err(|_| "invalid range end")?;
+    let total = total.parse::<u64>().map_err(|_| "invalid range total")?;
+    if start != offset || end < start || end >= total {
+        return Err("response range does not match requested offset".into());
+    }
+    if buffer.total_len().is_some_and(|known| known != total) {
+        return Err("stream length changed during download".into());
+    }
+    let expected = end - start + 1;
+    if offset == 0 { buffer.set_total(total); }
 
     let mut received = 0u64;
     while let Some(chunk) = response.chunk().await.map_err(describe)? {
         if buffer.is_cancelled() {
             break;
         }
+        if received + chunk.len() as u64 > expected { return Err("response exceeds declared range".into()); }
         buffer.push(&chunk);
         received += chunk.len() as u64;
     }
+    if !buffer.is_cancelled() && received != expected { return Err("incomplete range response".into()); }
     Ok(RangeOutcome::Partial { received, total })
 }
 
@@ -454,5 +469,107 @@ mod tests {
         writer.join().unwrap();
         assert_eq!(out, b"hello");
         assert_eq!(reader.seek(SeekFrom::End(-2)).unwrap(), 3);
+    }
+
+    #[tokio::test]
+    async fn interrupted_range_download_resumes_without_duplicating_bytes() {
+        use std::io::Write;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let mut requests = Vec::new();
+            for attempt in 0..2 {
+                let (mut socket, _) = listener.accept().unwrap();
+                socket.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+                let mut bytes = [0u8; 4096];
+                let read = socket.read(&mut bytes).unwrap();
+                let request = String::from_utf8_lossy(&bytes[..read]).to_string();
+                requests.push(request.clone());
+                if attempt == 0 {
+                    socket.write_all(b"HTTP/1.1 206 Partial Content\r\nContent-Range: bytes 0-9/10\r\nContent-Length: 10\r\nConnection: close\r\n\r\nabc").unwrap();
+                    socket.flush().unwrap();
+                    std::thread::sleep(Duration::from_millis(50));
+                } else if request.to_lowercase().contains("range: bytes=3-") {
+                    socket.write_all(b"HTTP/1.1 206 Partial Content\r\nContent-Range: bytes 3-9/10\r\nContent-Length: 7\r\nConnection: close\r\n\r\ndefghij").unwrap();
+                } else {
+                    socket.write_all(b"HTTP/1.1 206 Partial Content\r\nContent-Range: bytes 0-9/10\r\nContent-Length: 10\r\nConnection: close\r\n\r\nabcdefghij").unwrap();
+                }
+            }
+            requests
+        });
+        let buffer = StreamBuffer::new();
+        let client = Client::builder().timeout(Duration::from_secs(2)).build().unwrap();
+        download(client, MediaSource::Direct { url: format!("http://{address}/audio") }, buffer.clone()).await;
+        let mut bytes = Vec::new();
+        StreamReader::new(buffer).read_to_end(&mut bytes).unwrap();
+        let requests = server.join().unwrap();
+        assert_eq!(bytes, b"abcdefghij", "partial bytes must not be appended twice");
+        assert!(requests[1].to_lowercase().contains("range: bytes=3-"));
+    }
+
+    #[tokio::test]
+    async fn interrupted_youtube_download_resumes_without_duplicating_bytes() {
+        use std::io::Write;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let mut requests = Vec::new();
+            for attempt in 0..2 {
+                let (mut socket, _) = listener.accept().unwrap();
+                socket.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+                let mut bytes = [0u8; 4096];
+                let read = socket.read(&mut bytes).unwrap();
+                let request = String::from_utf8_lossy(&bytes[..read]).to_string();
+                requests.push(request.clone());
+                if attempt == 0 {
+                    socket.write_all(b"HTTP/1.1 206 Partial Content\r\nContent-Range: bytes 0-9/10\r\nContent-Length: 10\r\nConnection: close\r\n\r\nabc").unwrap();
+                    socket.flush().unwrap();
+                    std::thread::sleep(Duration::from_millis(50));
+                } else if request.contains("range=3-9") {
+                    socket.write_all(b"HTTP/1.1 206 Partial Content\r\nContent-Range: bytes 3-9/10\r\nContent-Length: 7\r\nConnection: close\r\n\r\ndefghij").unwrap();
+                } else {
+                    socket.write_all(b"HTTP/1.1 206 Partial Content\r\nContent-Range: bytes 0-9/10\r\nContent-Length: 10\r\nConnection: close\r\n\r\nabcdefghij").unwrap();
+                }
+            }
+            requests
+        });
+        let buffer = StreamBuffer::new();
+        let client = Client::builder().timeout(Duration::from_secs(2)).build().unwrap();
+        download(client, MediaSource::Youtube { url: format!("http://{address}/audio"), user_agent: "offline-test".into(), size: 10 }, buffer.clone()).await;
+        let mut bytes = Vec::new();
+        StreamReader::new(buffer).read_to_end(&mut bytes).unwrap();
+        let requests = server.join().unwrap();
+        assert_eq!(bytes, b"abcdefghij", "partial bytes must not be appended twice");
+        assert!(requests[1].contains("range=3-9"));
+    }
+
+    #[test]
+    fn untrusted_content_length_does_not_reserve_the_announced_size() {
+        let buffer = StreamBuffer::new();
+        buffer.set_total(u64::MAX);
+        assert_eq!(buffer.total_len(), Some(u64::MAX));
+        assert_eq!(buffer.downloaded_len(), 0);
+    }
+
+    #[tokio::test]
+    async fn empty_partial_responses_fail_after_bounded_retries() {
+        use std::io::Write;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            for _ in 0..MAX_ATTEMPTS {
+                let (mut socket, _) = listener.accept().unwrap();
+                let mut request = [0; 4096];
+                socket.read(&mut request).unwrap();
+                socket.write_all(b"HTTP/1.1 206 Partial Content\r\nContent-Range: bytes 0-9/10\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
+            }
+        });
+        let buffer = StreamBuffer::new();
+        let client = Client::builder().timeout(Duration::from_secs(2)).build().unwrap();
+        tokio::time::timeout(Duration::from_secs(4), download(client,
+            MediaSource::Direct { url: format!("http://{address}/empty") }, buffer.clone())).await.unwrap();
+        server.join().unwrap();
+        let mut reader = StreamReader::new(buffer);
+        assert!(reader.read(&mut [0; 1]).is_err());
     }
 }
