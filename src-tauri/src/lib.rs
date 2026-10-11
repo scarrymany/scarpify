@@ -120,6 +120,15 @@ async fn resume(app: AppHandle, state: State<'_, AppState>) -> Result<()> {
 }
 
 #[tauri::command]
+async fn set_system_theme(app: AppHandle, theme: String) -> Result<()> {
+    #[cfg(target_os = "android")]
+    mobile::set_theme(&app, &theme).await?;
+    #[cfg(not(target_os = "android"))]
+    let _ = (app, theme);
+    Ok(())
+}
+
+#[tauri::command]
 async fn background_app(app: AppHandle) -> Result<()> {
     #[cfg(target_os = "android")]
     mobile::background(&app).await?;
@@ -276,6 +285,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             background_app,
+            set_system_theme,
             search_youtube,
             search_soundcloud,
             prefetch,

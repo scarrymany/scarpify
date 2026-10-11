@@ -54,7 +54,7 @@
       else if (payload === "back") {
         if (menu.current) menu.close();
         else if (ui.confirmRequest) ui.answer(false);
-        else if (importOpen) importOpen = false;
+        else if (importOpen) window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
         else if (queueOpen) queueOpen = false;
         else if (libraryOpen) libraryOpen = false;
         else if (nav.canBack) nav.back();

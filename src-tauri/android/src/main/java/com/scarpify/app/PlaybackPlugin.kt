@@ -2,6 +2,7 @@ package com.scarpify.app
 
 import android.app.Activity
 import android.webkit.WebView
+import androidx.core.view.WindowCompat
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import app.tauri.annotation.Command
@@ -16,11 +17,14 @@ class ConfigureArgs { lateinit var channel: Channel }
 @InvokeArg
 class PrepareArgs { var title: String = ""; var artist: String = ""; var durationMs: Long? = null }
 @InvokeArg
+class ThemeArgs { var theme: String = "dark" }
+@InvokeArg
 class UpdateArgs { var kind: String = ""; var positionMs: Long = 0 }
 
 @TauriPlugin
 class PlaybackPlugin(private val activity: Activity): Plugin(activity) {
     override fun load(webView: WebView) {
+        WindowCompat.getInsetsController(activity.window, activity.window.decorView).isAppearanceLightStatusBars = false
         (activity as AppCompatActivity).onBackPressedDispatcher.addCallback(activity,
             object: OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
@@ -58,6 +62,15 @@ class PlaybackPlugin(private val activity: Activity): Plugin(activity) {
             PlaybackService.resume(activity)
             invoke.resolve()
         } catch (error: Exception) { invoke.reject(error.message ?: "Audio focus unavailable") }
+    }
+
+    @Command
+    fun setTheme(invoke: Invoke) {
+        val light = invoke.parseArgs(ThemeArgs::class.java).theme == "light"
+        val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+        controller.isAppearanceLightStatusBars = light
+        controller.isAppearanceLightNavigationBars = light
+        invoke.resolve()
     }
 
     @Command

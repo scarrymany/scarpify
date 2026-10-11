@@ -1,6 +1,8 @@
 <script lang="ts">
   import "@fontsource-variable/onest";
   import "../app.css";
+  import { invoke } from "@tauri-apps/api/core";
+  import { isAndroid } from "$lib/platform";
   import type { Snippet } from "svelte";
   import { settings } from "$lib/state/settings.svelte";
 
@@ -27,6 +29,7 @@
 
   $effect(() => {
     const theme = settings.theme === "system" ? (systemDark ? "dark" : "light") : settings.theme;
+    if (isAndroid) void invoke("set_system_theme", { theme }).catch(console.error);
     const accent = settings.accentColor;
     const palette = `${theme}|${accent}`;
     if (palette === appliedPalette) return;

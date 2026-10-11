@@ -56,3 +56,8 @@ pub async fn background(app: &AppHandle) -> Result<()> {
     app.state::<MobilePlayback>().0.run_mobile_plugin_async::<()>("background", serde_json::json!({}))
         .await.map_err(|e| Error::Output(e.to_string()))
 }
+
+pub async fn set_theme(app: &AppHandle, theme: &str) -> Result<()> {
+    app.state::<MobilePlayback>().0.run_mobile_plugin_async::<()>("setTheme", serde_json::json!({"theme": theme}))
+        .await.map_err(|e| Error::Output(e.to_string()))
+}
