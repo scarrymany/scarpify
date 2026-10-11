@@ -55,7 +55,7 @@
   <div class="menu" class:nested class:left={nested && submenuLeft} role="menu">
     {#each items as item, index (item.label + index)}
       <div class="entry" onpointerenter={() => !nested && (openSubmenu = item.submenu ? index : null)} role="none">
-        <button class="item" class:danger={item.danger} role="menuitem" onclick={() => run(item)}>
+        <button class="item" class:danger={item.danger} role="menuitem" onclick={() => item.submenu ? (openSubmenu = index) : run(item)}>
           {#if item.icon}<item.icon />{/if}
           <span class="label">{item.label}</span>
           {#if item.submenu}<span class="caret"><CaretRight /></span>{/if}
@@ -166,5 +166,10 @@
       opacity: 0;
       transform: scale(0.97);
     }
+  }
+  @media (max-width: 900px) {
+    .context { max-height: calc(100dvh - 24px); overflow-y: auto; max-width: calc(100vw - 16px); }
+    .menu.nested, .menu.nested.left { position: static; box-shadow: none; margin-left: 8px; max-width: 100%; min-width: 0; }
+    .item { min-height: 44px; height: auto; padding-block: 10px; }
   }
 </style>

@@ -1,3 +1,7 @@
+#[cfg(target_os = "android")]
+mod mobile;
+#[cfg(feature = "smoke-test")]
+mod fixtures;
 mod audio;
 mod error;
 mod library;
@@ -58,18 +62,23 @@ async fn import_playlist(link: String, state: State<'_, AppState>) -> Result<Sav
 }
 
 #[tauri::command]
-async fn play(track: Track, state: State<'_, AppState>) -> Result<()> {
-    match start_playback(&state, &track).await {
+async fn play(app: AppHandle, track: Track, state: State<'_, AppState>) -> Result<()> {
+    let generation = state.engine.begin_load();
+    #[cfg(target_os = "android")]
+    mobile::prepare(&app, &track).await?;
+    #[cfg(not(target_os = "android"))]
+    let _ = app;
+    match start_playback(&state, &track, generation).await {
         // A cached URL can expire or be refused by the CDN; one fresh resolution fixes that.
         Err(err) if !matches!(err, Error::Cancelled) => {
             state.sources.forget_stream(&track);
-            start_playback(&state, &track).await
+            start_playback(&state, &track, generation).await
         }
         result => result,
     }
 }
 
-async fn start_playback(state: &AppState, track: &Track) -> Result<()> {
+async fn start_playback(state: &AppState, track: &Track, generation: u64) -> Result<()> {
     let stream = state.sources.stream(track).await?;
     state
         .engine
@@ -77,7 +86,7 @@ async fn start_playback(state: &AppState, track: &Track) -> Result<()> {
             source: stream.source,
             format_hint: stream.format_hint,
             gain: stream.gain,
-        })
+        }, generation)
         .await
 }
 
@@ -101,8 +110,22 @@ fn pause(state: State<'_, AppState>) {
 }
 
 #[tauri::command]
-fn resume(state: State<'_, AppState>) {
+async fn resume(app: AppHandle, state: State<'_, AppState>) -> Result<()> {
+    #[cfg(target_os = "android")]
+    mobile::resume(&app).await?;
+    #[cfg(not(target_os = "android"))]
+    let _ = app;
     state.engine.resume();
+    Ok(())
+}
+
+#[tauri::command]
+async fn background_app(app: AppHandle) -> Result<()> {
+    #[cfg(target_os = "android")]
+    mobile::background(&app).await?;
+    #[cfg(not(target_os = "android"))]
+    let _ = app;
+    Ok(())
 }
 
 #[tauri::command]
@@ -211,7 +234,9 @@ fn init_state(app: &AppHandle) -> std::result::Result<AppState, Box<dyn std::err
 
     let emitter = app.clone();
     let engine = AudioEngine::spawn(http.clone(), move |event| {
-        let _ = emitter.emit(PLAYER_EVENT, event);
+        let _ = emitter.emit(PLAYER_EVENT, &event);
+        #[cfg(target_os = "android")]
+        mobile::event(&emitter, event);
     });
 
     Ok(AppState {
@@ -224,11 +249,24 @@ fn init_state(app: &AppHandle) -> std::result::Result<AppState, Box<dyn std::err
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(mobile::init());
+    builder
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let state = init_state(app.handle())?;
             app.manage(state);
+            #[cfg(target_os = "android")]
+            {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let engine = handle.state::<AppState>().engine.clone();
+                    if let Err(error) = mobile::configure(&handle, engine).await {
+                        let _ = handle.emit(PLAYER_EVENT, audio::engine::PlayerEvent::Error { message: error.to_string() });
+                    }
+                });
+            }
 
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -237,6 +275,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            background_app,
             search_youtube,
             search_soundcloud,
             prefetch,

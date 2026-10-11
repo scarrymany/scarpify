@@ -41,6 +41,9 @@ export function collectionActions(collection: SavedCollection): MenuItem[] {
       ? { label: t.unpin, icon: PushPinSlash, action: () => library.setPinned(collection.id, false) }
       : { label: t.pin, icon: PushPin, action: () => library.setPinned(collection.id, true) },
   ];
+  const index = library.collections.findIndex((item) => item.id === collection.id);
+  if (index > 0) items.push({ label: i18n.t.track.moveUp, action: () => library.move(index, index - 1) });
+  if (index >= 0 && index < library.collections.length - 1) items.push({ label: i18n.t.track.moveDown, action: () => library.move(index, index + 1) });
   if (collection.origin === "user") {
     items.push({
       label: t.rename,

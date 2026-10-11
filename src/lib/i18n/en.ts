@@ -42,6 +42,9 @@ export const en = {
     providerError: "{provider} did not respond: {error}",
   },
   track: {
+    actions: "Track actions",
+    moveUp: "Move up",
+    moveDown: "Move down",
     title: "Title",
     album: "Album",
     duration: "Duration",

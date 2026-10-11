@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DotsThree from "phosphor-svelte/lib/DotsThree";
   import ListPlus from "phosphor-svelte/lib/ListPlus";
   import Clock from "phosphor-svelte/lib/Clock";
   import Queue from "phosphor-svelte/lib/Queue";
@@ -89,6 +90,9 @@
       { label: liked ? t.track.unlike : t.track.like, icon: Heart, action: () => library.toggleLike(track) },
     ];
     if (playlistId) {
+      const index = tracks.indexOf(track);
+      if (index > 0) items.push({ label: t.track.moveUp, action: () => library.moveTrack(playlistId!, index, index - 1) });
+      if (index < tracks.length - 1) items.push({ label: t.track.moveDown, action: () => library.moveTrack(playlistId!, index, index + 1) });
       items.push({
         label: t.playlist.removeFrom,
         icon: Trash,
@@ -166,6 +170,7 @@
       {/if}
 
       <span class="duration">
+        <button class="icon-button touch-menu" aria-label={i18n.t.track.actions} onclick={(e) => menu.showAt(e.currentTarget, trackActions(track))}><DotsThree /></button>
         <button
           class="icon-button hover-only"
           aria-label={i18n.t.track.addToQueue}
@@ -313,5 +318,21 @@
 
   .like-slot {
     display: inline-grid;
+  }
+  .touch-menu { display: none; }
+  @media (max-width: 900px) {
+    .list, .list.no-album { --columns: 36px minmax(0, 1fr) 44px; }
+    .row { gap: 6px; padding: 4px; }
+    .album, .duration .time, .duration .hover-only, .duration .like-slot { display: none; }
+    .touch-menu { display: grid; }
+    .row-play { opacity: 1; }
+    .number, .bars { visibility: hidden; }
+    .main { gap: 8px; min-width: 0; }
+    .header { display: none; }
+  }
+  @media (pointer: coarse) {
+    .row-play { opacity: 1; }
+    .number, .bars { visibility: hidden; }
+    .touch-menu { display: grid; }
   }
 </style>

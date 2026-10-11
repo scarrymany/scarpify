@@ -359,4 +359,9 @@
     color: var(--text);
     font-weight: 600;
   }
+  @media (max-width: 900px) {
+    .settings { padding: 20px 12px 36px; gap: 24px; }
+    .field { flex-wrap: wrap; gap: 12px; }
+    .segmented { max-width: 100%; }
+  }
 </style>

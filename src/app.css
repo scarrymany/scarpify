@@ -290,3 +290,11 @@ p {
 .sort-dropping [data-sortable] {
   transition: none !important;
 }
+
+@media (pointer: coarse) {
+  .icon-button { min-width: 44px; min-height: 44px; }
+  input, textarea, select { font-size: 16px; }
+}
+@media (max-width: 900px) {
+  .dialog { max-height: calc(100dvh - 32px); overflow-y: auto; }
+}

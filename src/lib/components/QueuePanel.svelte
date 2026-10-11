@@ -16,12 +16,13 @@
 </script>
 
 {#snippet item(track: Track, index: number, active: boolean)}
+  <div class="queue-entry">
   <button
     class="item"
     class:active
     data-sortable={active ? undefined : ""}
     ondblclick={() => player.jumpTo(index)}
-    onclick={() => active && player.toggle()}
+    onclick={(event) => active ? player.toggle() : ("pointerType" in event && (event.pointerType === "touch" || event.pointerType === "pen")) && player.jumpTo(index)}
   >
     <Artwork src={track.artwork} size="44px" />
     <span class="text">
@@ -30,6 +31,13 @@
       <ProviderBadge provider={track.provider} />
     </span>
   </button>
+  {#if !active}
+    <div class="touch-order">
+      <button class="icon-button" aria-label={i18n.t.track.moveUp} disabled={index <= player.index + 1} onclick={() => player.moveUpcoming(index - player.index - 1, index - player.index - 2)}>↑</button>
+      <button class="icon-button" aria-label={i18n.t.track.moveDown} disabled={index >= player.queue.length - 1} onclick={() => player.moveUpcoming(index - player.index - 1, index - player.index)}>↓</button>
+    </div>
+  {/if}
+  </div>
 {/snippet}
 
 <aside class="queue">
@@ -191,4 +199,8 @@
     padding: 12px;
     color: var(--text-faint);
   }
+  .queue-entry { display: flex; align-items: center; min-width: 0; }
+  .queue-entry > .item { min-width: 0; }
+  .touch-order { display: none; }
+  @media (pointer: coarse) { .touch-order { display: flex; } }
 </style>

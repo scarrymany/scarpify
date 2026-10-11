@@ -42,6 +42,9 @@ export const uk: Dictionary = {
     providerError: "{provider} не відповів: {error}",
   },
   track: {
+    actions: "Дії з треком",
+    moveUp: "Перемістити вище",
+    moveDown: "Перемістити нижче",
     title: "Назва",
     album: "Альбом",
     duration: "Тривалість",

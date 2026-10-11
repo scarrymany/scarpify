@@ -20,6 +20,8 @@ const RETRY_DELAY: Duration = Duration::from_millis(400);
 
 #[derive(Debug, Clone)]
 pub enum MediaSource {
+    #[cfg(feature = "smoke-test")]
+    Memory { data: &'static [u8] },
     /// A single file that supports HTTP range requests.
     Direct { url: String },
     /// A googlevideo stream: it rejects the Range header and expects a `range` query parameter.
@@ -35,6 +37,8 @@ pub enum MediaSource {
 impl MediaSource {
     pub fn url(&self) -> &str {
         match self {
+            #[cfg(feature = "smoke-test")]
+            Self::Memory { .. } => "fixture://tone",
             Self::Direct { url } | Self::Youtube { url, .. } => url,
             Self::Hls { playlist_url } => playlist_url,
         }
@@ -192,6 +196,8 @@ fn describe(err: reqwest::Error) -> String {
 
 pub async fn download(http: Client, source: MediaSource, buffer: Arc<StreamBuffer>) {
     let result = match source {
+        #[cfg(feature = "smoke-test")]
+        MediaSource::Memory { data } => { buffer.push(data); Ok(()) },
         MediaSource::Direct { url } => download_ranged(&http, &url, &buffer).await,
         MediaSource::Youtube {
             url,

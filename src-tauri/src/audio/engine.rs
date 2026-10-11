@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::thread;
@@ -28,6 +28,7 @@ pub enum PlayerEvent {
     Paused { position_ms: u64 },
     Progress { position_ms: u64 },
     Ended,
+    Stopped,
     Error { message: String },
 }
 
@@ -58,6 +59,7 @@ enum Command {
     Seek(Duration),
     Volume(f32),
     Stop,
+    StopAndNotify,
     /// Closes the current output and remembers the device to open next.
     SwitchDevice {
         device: Option<String>,
@@ -76,6 +78,7 @@ struct Current {
 pub struct AudioEngine {
     commands: Sender<Command>,
     generation: Arc<AtomicU64>,
+    paused: AtomicBool,
     current: Mutex<Option<Current>>,
     /// Output chosen in settings; `None` follows the system default.
     preferred_device: Mutex<Option<String>>,
@@ -99,6 +102,7 @@ impl AudioEngine {
         let engine = Arc::new(Self {
             commands,
             generation,
+            paused: AtomicBool::new(false),
             current: Mutex::new(None),
             preferred_device: Mutex::new(None),
             active_device,
@@ -108,18 +112,29 @@ impl AudioEngine {
         engine
     }
 
-    /// Starts downloading and decoding a new track, replacing the current one.
-    pub async fn load(&self, request: LoadRequest) -> Result<()> {
+    /// Reserve a generation before provider resolution: a slow old request must never
+    /// replace a newer track, or restart playback after stop/audio-focus interruption.
+    pub fn begin_load(&self) -> u64 {
+        let mut current = lock(&self.current);
         let generation = self.generation.fetch_add(1, Ordering::AcqRel) + 1;
+        self.paused.store(false, Ordering::Release);
+        if let Some(previous) = current.take() { previous.buffer.cancel(); }
+        self.send(Command::Stop);
+        generation
+    }
+
+    pub async fn load(&self, request: LoadRequest, generation: u64) -> Result<()> {
         let current = Current {
             buffer: StreamBuffer::new(),
             hint: request.format_hint,
             gain: request.gain,
         };
-        if let Some(previous) = lock(&self.current).replace(current.clone()) {
-            previous.buffer.cancel();
+        {
+            let mut active = lock(&self.current);
+            if generation != self.generation.load(Ordering::Acquire) { return Err(Error::Cancelled); }
+            if let Some(previous) = active.replace(current.clone()) { previous.buffer.cancel(); }
+            self.send(Command::Stop);
         }
-        self.send(Command::Stop);
 
         tauri::async_runtime::spawn(stream::download(
             self.http.clone(),
@@ -133,7 +148,7 @@ impl AudioEngine {
             decoder,
             gain: current.gain,
             start_at: Duration::ZERO,
-            paused: false,
+            paused: self.paused.load(Ordering::Acquire),
         });
         Ok(())
     }
@@ -145,10 +160,12 @@ impl AudioEngine {
     }
 
     pub fn pause(&self) {
+        self.paused.store(true, Ordering::Release);
         self.send(Command::Pause);
     }
 
     pub fn resume(&self) {
+        self.paused.store(false, Ordering::Release);
         self.send(Command::Resume);
     }
 
@@ -161,11 +178,12 @@ impl AudioEngine {
     }
 
     pub fn stop(&self) {
+        let mut current = lock(&self.current);
         self.generation.fetch_add(1, Ordering::AcqRel);
-        if let Some(previous) = lock(&self.current).take() {
+        if let Some(previous) = current.take() {
             previous.buffer.cancel();
         }
-        self.send(Command::Stop);
+        self.send(Command::StopAndNotify);
     }
 
     async fn reopen_output(&self) -> Result<()> {
@@ -339,6 +357,7 @@ impl<F: Fn(PlayerEvent)> EngineThread<F> {
                 self.apply_volume();
             }
             Command::Stop => self.player = None,
+            Command::StopAndNotify => { self.player = None; (self.emit)(PlayerEvent::Stopped); },
             Command::SwitchDevice { device, reply } => {
                 let resume = self.player.take().map(|player| Resume {
                     position: player.get_pos(),
@@ -447,5 +466,42 @@ mod tests {
 
         let ended = serde_json::to_value(PlayerEvent::Ended).unwrap();
         assert_eq!(ended, serde_json::json!({ "kind": "ended" }));
+    }
+}
+
+#[cfg(test)]
+mod lifecycle_tests {
+    use super::*;
+
+    fn engine() -> (AudioEngine, mpsc::Receiver<Command>) {
+        let (commands, receiver) = mpsc::channel();
+        (AudioEngine {
+            commands, generation: Arc::new(AtomicU64::new(0)), paused: AtomicBool::new(false),
+            current: Mutex::new(None), preferred_device: Mutex::new(None),
+            active_device: Arc::new(Mutex::new(None)), http: Client::new(),
+        }, receiver)
+    }
+
+    #[tokio::test]
+    async fn late_resolution_after_stop_or_new_selection_is_rejected_before_network() {
+        let (engine, _commands) = engine();
+        let first = engine.begin_load();
+        engine.stop();
+        let request = || LoadRequest { source: MediaSource::Direct { url: "http://127.0.0.1:1/never".into() }, format_hint: "mp3", gain: 1.0 };
+        assert!(matches!(engine.load(request(), first).await, Err(Error::Cancelled)));
+        let second = engine.begin_load();
+        engine.begin_load();
+        assert!(matches!(engine.load(request(), second).await, Err(Error::Cancelled)));
+        assert!(lock(&engine.current).is_none());
+    }
+
+    #[test]
+    fn focus_pause_survives_until_the_pending_decode_finishes() {
+        let (engine, _commands) = engine();
+        engine.begin_load();
+        engine.pause();
+        assert!(engine.paused.load(Ordering::Acquire));
+        engine.resume();
+        assert!(!engine.paused.load(Ordering::Acquire));
     }
 }

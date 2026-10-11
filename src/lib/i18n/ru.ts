@@ -42,6 +42,9 @@ export const ru: Dictionary = {
     providerError: "{provider} не ответил: {error}",
   },
   track: {
+    actions: "Действия с треком",
+    moveUp: "Переместить выше",
+    moveDown: "Переместить ниже",
     title: "Название",
     album: "Альбом",
     duration: "Длительность",

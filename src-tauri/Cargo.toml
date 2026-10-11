@@ -15,6 +15,10 @@ edition = "2021"
 name = "scarpify_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# Explicit offline native QA build. Release CI must not enable this feature.
+smoke-test = []
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -38,6 +42,8 @@ reqwest = { version = "0.12", default-features = false, features = ["default-tls
 discord-rich-presence = "1.1"
 
 [target.'cfg(target_os = "android")'.dependencies]
+# RustyPipe uses QuickJS; upstream does not ship Android bindings.
+rquickjs = { version = "0.9", features = ["bindgen"] }
 rustypipe = { version = "0.11", default-features = false, features = ["rustls-tls-webpki-roots"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-webpki-roots", "json", "gzip"] }
 

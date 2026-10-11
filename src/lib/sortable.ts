@@ -16,7 +16,7 @@ const DRAG_THRESHOLD_PX = 5;
 const AUTOSCROLL_EDGE_PX = 48;
 const AUTOSCROLL_MAX_STEP_PX = 14;
 /** Targets that keep their own pointer behaviour instead of starting a drag. */
-const NO_DRAG = "input, textarea, [role=slider], [contenteditable]";
+const NO_DRAG = "input, textarea, [role=slider], [contenteditable], .touch-order";
 
 interface Drag {
   item: HTMLElement;
@@ -49,7 +49,7 @@ export function sortable(container: HTMLElement, initial: SortableOptions) {
   const itemsOf = () => [...container.querySelectorAll<HTMLElement>("[data-sortable]")];
 
   function onpointerdown(event: PointerEvent) {
-    if (options.disabled || event.button !== 0) return;
+    if (options.disabled || event.button !== 0 || event.pointerType === "touch") return;
     const target = event.target as Element;
     if (target.closest(NO_DRAG)) return;
     const item = target.closest<HTMLElement>("[data-sortable]");

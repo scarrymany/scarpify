@@ -46,12 +46,30 @@ class Player {
   #loadId = 0;
   /** Whether the engine holds a decoded track that `resume` can continue. */
   #engineLoaded = false;
+  #restorePosition = 0;
   #prefetchTimer: ReturnType<typeof setTimeout> | undefined;
   #prefetchedAt = new Map<string, number>();
 
   async init(): Promise<void> {
+    const saved = load<{ queue?: Track[]; index?: number; positionMs?: number } | null>("playback", null);
+    if (saved && Array.isArray(saved.queue) && saved.queue.length > 0 && saved.queue.every((t) =>
+      t && typeof t.id === "string" && typeof t.title === "string" && ["youtube", "soundcloud", "spotify"].includes(t.provider) &&
+      Array.isArray(t.artists) && t.artists.every((a) => typeof a === "string") &&
+      (t.durationMs === null || (typeof t.durationMs === "number" && Number.isFinite(t.durationMs) && t.durationMs >= 0))
+    ) && Number.isInteger(saved.index) && saved.index! >= 0 && saved.index! < saved.queue.length) {
+      this.queue = saved.queue;
+      this.#ordered = [...saved.queue];
+      this.index = saved.index!;
+      this.status = "paused";
+      this.#restorePosition = typeof saved.positionMs === "number" && Number.isFinite(saved.positionMs) ? Math.max(0, saved.positionMs) : 0;
+      this.#setPosition(this.#restorePosition);
+    }
     await onPlayerEvent((event) => this.#handle(event));
     await api.setVolume(this.#effectiveVolume());
+  }
+
+  persistSession(): void {
+    save("playback", { queue: this.queue, index: this.index, positionMs: this.positionMs });
   }
 
   /** Discord shows the track while it plays; pausing or stopping hides it, like Spotify. */
@@ -74,7 +92,8 @@ class Player {
   }
 
   playTracks(tracks: Track[], startIndex = 0): void {
-    if (tracks.length === 0) return;
+    if (!Number.isInteger(startIndex) || startIndex < 0 || startIndex >= tracks.length) return;
+    this.#restorePosition = 0;
     const start = tracks[startIndex];
     this.#ordered = [...tracks];
     if (this.shuffle) {
@@ -230,6 +249,11 @@ class Player {
   #handle(event: PlayerEvent): void {
     switch (event.kind) {
       case "playing":
+        if (this.#restorePosition > 0) {
+          const position = this.#restorePosition;
+          this.#restorePosition = 0;
+          this.seek(position);
+        }
         this.#engineLoaded = true;
         this.status = "playing";
         this.#setPosition(event.positionMs);
@@ -253,7 +277,16 @@ class Player {
           this.#syncPresence();
         }
         break;
+      case "stopped":
+        this.#engineLoaded = false;
+        this.status = "paused";
+        this.#setPosition(0);
+        this.#syncPresence();
+        break;
       case "error":
+        this.status = "paused";
+        this.#engineLoaded = false;
+        this.#syncPresence();
         toasts.error(format(i18n.t.errors.generic, { error: event.message }));
         break;
     }
