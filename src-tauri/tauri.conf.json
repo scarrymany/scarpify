@@ -30,7 +30,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": "all",
     "category": "Music",
     "shortDescription": "Ad-free music player for YouTube Music and SoundCloud",
     "copyright": "SCARPIFY contributors, GPL-3.0-or-later",
@@ -45,7 +45,11 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["English", "Russian", "Ukrainian"],
+        "languages": [
+          "English",
+          "Russian",
+          "Ukrainian"
+        ],
         "displayLanguageSelector": true
       }
     }
