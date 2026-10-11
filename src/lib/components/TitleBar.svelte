@@ -16,11 +16,14 @@
 
   const AUTHOR_TELEGRAM_URL = "https://t.me/yeet17";
 
-  const appWindow = getCurrentWindow();
+  import { supportsDesktopWindow } from "$lib/platform";
+
+  const appWindow = supportsDesktopWindow ? getCurrentWindow() : null;
   let maximized = $state(false);
   let input: HTMLInputElement;
 
   onMount(() => {
+    if (!appWindow) return;
     const sync = async () => (maximized = await appWindow.isMaximized());
     void sync();
     const unlisten = appWindow.onResized(sync);
@@ -87,6 +90,7 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d={siTelegram.path} /></svg>
     </button>
 
+    {#if appWindow}
     <div class="window-controls">
       <button aria-label={i18n.t.window.minimize} title={i18n.t.window.minimize} onclick={() => appWindow.minimize()}>
         <Minus />
@@ -102,6 +106,7 @@
         <X />
       </button>
     </div>
+    {/if}
   </div>
 </header>
 

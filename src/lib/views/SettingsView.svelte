@@ -12,6 +12,8 @@
   import { format, i18n } from "$lib/i18n/index.svelte";
   import { ACCENTS, LOCALES, settings, type Theme } from "$lib/state/settings.svelte";
 
+  import { supportsDiscordPresence } from "$lib/platform";
+
   const REPOSITORY_URL = "https://github.com/scarrymany/scarpify";
 
   let version = $state("");
@@ -144,12 +146,13 @@
     <div class="field">
       <span class="label-block">
         <span class="label">{i18n.t.settings.discord}</span>
-        <span class="hint">{i18n.t.settings.discordHint}</span>
+        <span class="hint">{supportsDiscordPresence ? i18n.t.settings.discordHint : i18n.t.settings.discordUnavailable}</span>
       </span>
       <button
         class="switch"
         role="switch"
-        aria-checked={settings.discordPresence}
+        aria-checked={supportsDiscordPresence && settings.discordPresence}
+        disabled={!supportsDiscordPresence}
         aria-label={i18n.t.settings.discord}
         onclick={() => update(() => (settings.discordPresence = !settings.discordPresence))}
       >

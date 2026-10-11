@@ -10,7 +10,6 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use discord_rich_presence::activity::{Activity, ActivityType, Assets, StatusDisplayType, Timestamps};
 use discord_rich_presence::{DiscordIpc, DiscordIpcClient};
-use serde::Deserialize;
 
 /// Application registered in the Discord Developer Portal; its name and icon are what
 /// Discord shows as "Listening to SCARPIFY". Forks can point to their own application
@@ -31,17 +30,7 @@ const BADGE_TEXT: &str = "SCARPIFY";
 const MAX_TEXT_CHARS: usize = 128;
 const MIN_TEXT_CHARS: usize = 2;
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct NowPlaying {
-    pub title: String,
-    pub artists: Vec<String>,
-    pub album: Option<String>,
-    pub artwork: Option<String>,
-    pub url: Option<String>,
-    pub position_ms: u64,
-    pub duration_ms: Option<u64>,
-}
+pub use crate::model::NowPlaying;
 
 enum Command {
     Show(NowPlaying),

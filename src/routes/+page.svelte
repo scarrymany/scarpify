@@ -22,6 +22,8 @@
   import { toasts } from "$lib/state/toasts.svelte";
   import { motion } from "$lib/motion";
 
+  import { supportsDiscordPresence } from "$lib/platform";
+
   let titleBar: TitleBar;
   let queueOpen = $state(false);
   let importOpen = $state(false);
@@ -38,7 +40,7 @@
   });
 
   $effect(() => {
-    void api.setPresenceEnabled(settings.discordPresence);
+    if (supportsDiscordPresence) void api.setPresenceEnabled(settings.discordPresence);
   });
 
   $effect(() => {
