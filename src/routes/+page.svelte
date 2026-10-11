@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { listen } from "@tauri-apps/api/event";
+  import { invoke } from "@tauri-apps/api/core";
+  import { menu } from "$lib/state/menu.svelte";
+  import { ui } from "$lib/state/ui.svelte";
+  import { isAndroid } from "$lib/platform";
+  import { onMount, untrack } from "svelte";
   import { fade } from "svelte/transition";
   import TitleBar from "$lib/components/TitleBar.svelte";
   import Sidebar from "$lib/components/Sidebar.svelte";
@@ -25,10 +30,13 @@
   import { supportsDiscordPresence } from "$lib/platform";
 
   let titleBar: TitleBar;
+  let libraryOpen = $state(false);
   let queueOpen = $state(false);
   let importOpen = $state(false);
 
   const route = $derived(nav.current);
+  $effect(() => { void nav.current; libraryOpen = false; });
+
   const routeKey = $derived(route.name === "collection" ? `collection:${route.id}` : route.name);
   const collection = $derived(route.name === "collection" ? library.collection(route.id) : undefined);
 
@@ -37,6 +45,33 @@
     player.init().catch(report);
     library.init().catch(report);
     if (settings.audioDevice) api.setAudioDevice(settings.audioDevice).catch(report);
+    const persist = () => player.persistSession();
+    document.addEventListener("visibilitychange", persist);
+    window.addEventListener("pagehide", persist);
+    const media = isAndroid ? listen<string>("media-control", ({ payload }) => {
+      if (payload === "next") player.next();
+      else if (payload === "previous") player.previous();
+      else if (payload === "back") {
+        if (menu.current) menu.close();
+        else if (ui.confirmRequest) ui.answer(false);
+        else if (importOpen) window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+        else if (queueOpen) queueOpen = false;
+        else if (libraryOpen) libraryOpen = false;
+        else if (nav.canBack) nav.back();
+        else void invoke("background_app").catch(report);
+      }
+    }) : Promise.resolve(() => {});
+    return () => {
+      persist();
+      document.removeEventListener("visibilitychange", persist);
+      window.removeEventListener("pagehide", persist);
+      void media.then((unlisten) => unlisten());
+    };
+  });
+
+  $effect(() => {
+    void player.queue; void player.index;
+    untrack(() => player.persistSession());
   });
 
   $effect(() => {
@@ -94,8 +129,11 @@
 <svelte:window {onkeydown} {onkeyup} {onpointerdown} {onmouseup} />
 
 <div class="app" class:with-queue={queueOpen} oncontextmenu={(e) => e.preventDefault()} role="presentation">
-  <TitleBar bind:this={titleBar} />
-  <Sidebar onimport={() => (importOpen = true)} />
+  <TitleBar bind:this={titleBar} ontogglelibrary={() => (libraryOpen = !libraryOpen)} />
+  {#if libraryOpen}<button class="library-backdrop" aria-label={i18n.t.window.close} onclick={() => (libraryOpen = false)}></button>{/if}
+  <div class="sidebar-slot" class:mobile-open={libraryOpen}>
+    <Sidebar onimport={() => { libraryOpen = false; importOpen = true; }} />
+  </div>
 
   <main class="main">
     {#key routeKey}
@@ -188,5 +226,29 @@
 
   .queue-slot.open {
     transform: none;
+  }
+  .sidebar-slot { grid-area: sidebar; display: flex; min-height: 0; }
+  .sidebar-slot :global(.sidebar) { width: 100%; }
+  .library-backdrop { display: none; }
+  @media (max-width: 900px) {
+    .app, .app.with-queue {
+      --titlebar-height: 56px;
+      --playerbar-height: 170px;
+      --queue-width: calc(100vw - 16px);
+      grid-template-areas: "titlebar" "main" "player";
+      grid-template-columns: minmax(0, 1fr);
+      height: 100dvh;
+      padding: env(safe-area-inset-top) 8px env(safe-area-inset-bottom);
+    }
+    .main { margin-left: 0; }
+    .sidebar-slot {
+      position: absolute; z-index: 30; left: 8px;
+      top: calc(var(--titlebar-height) + env(safe-area-inset-top));
+      bottom: calc(var(--playerbar-height) + env(safe-area-inset-bottom));
+      width: min(320px, calc(100vw - 32px)); display: none;
+    }
+    .sidebar-slot.mobile-open { display: flex; }
+    .library-backdrop { display: block; position: fixed; inset: 0; background: #0009; z-index: 29; }
+    .queue-slot { z-index: 28; top: calc(var(--titlebar-height) + env(safe-area-inset-top)); bottom: calc(var(--playerbar-height) + env(safe-area-inset-bottom)); }
   }
 </style>

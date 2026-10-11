@@ -372,4 +372,12 @@
   .empty p {
     color: var(--text-muted);
   }
+  @media (max-width: 900px) {
+    .hero { padding: 24px 12px 12px; }
+    .hero-content { flex-direction: column; align-items: flex-start; gap: 16px; }
+    .hero-content > :global(.artwork), .cover { width: 128px; height: 128px; }
+    h1, .title-input { font-size: 28px; }
+    .actions { padding: 16px 12px; }
+    .tracks { padding: 0 4px; }
+  }
 </style>

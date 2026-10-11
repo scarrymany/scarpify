@@ -14,6 +14,8 @@
   import { nav } from "$lib/state/nav.svelte";
   import { search } from "$lib/state/search.svelte";
 
+  let { ontogglelibrary }: { ontogglelibrary?: () => void } = $props();
+
   const AUTHOR_TELEGRAM_URL = "https://t.me/yeet17";
 
   import { supportsDesktopWindow } from "$lib/platform";
@@ -50,6 +52,7 @@
 </script>
 
 <header class="titlebar" data-tauri-drag-region>
+  <button class="library-toggle icon-button" aria-label={i18n.t.nav.library} onclick={ontogglelibrary}>☰</button>
   <div class="history" data-tauri-drag-region>
     <button class="icon-button round" aria-label={i18n.t.nav.back} title={i18n.t.nav.back} disabled={!nav.canBack} onclick={() => nav.back()}>
       <CaretLeft weight="bold" />
@@ -237,5 +240,13 @@
   .window-controls .close:hover {
     background: #c42b1c;
     color: #fff;
+  }
+  .library-toggle { display: none; }
+  @media (max-width: 900px) {
+    .titlebar { grid-template-columns: 44px minmax(0, 1fr); gap: 6px; padding: 0; }
+    .library-toggle { display: grid; }
+    .history, .end { display: none; }
+    .search { min-width: 0; padding: 0 10px; }
+    input { font-size: 16px; }
   }
 </style>

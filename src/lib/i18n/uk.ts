@@ -42,6 +42,9 @@ export const uk: Dictionary = {
     providerError: "{provider} не відповів: {error}",
   },
   track: {
+    actions: "Дії з треком",
+    moveUp: "Перемістити вище",
+    moveDown: "Перемістити нижче",
     title: "Назва",
     album: "Альбом",
     duration: "Тривалість",
@@ -80,7 +83,7 @@ export const uk: Dictionary = {
     unpin: "Відкріпити",
     more: "Інші дії",
     emptyTitle: "Наповнимо цей плейлист",
-    emptyBody: "Натисніть правою кнопкою на будь-який трек і виберіть «Додати до плейлиста».",
+    emptyBody: "Відкрийте меню будь-якого треку й виберіть «Додати до плейлиста».",
     coverError: "Не вдалося прочитати зображення.",
   },
   importer: {

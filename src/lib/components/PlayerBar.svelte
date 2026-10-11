@@ -242,4 +242,16 @@
     display: flex;
     width: 112px;
   }
+  @media (max-width: 900px) {
+    .playerbar { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 58px 94px; gap: 0 8px; padding: 4px; }
+    .now { gap: 8px; }
+    .now :global(.artwork) { width: 44px !important; height: 44px !important; }
+    .meta :global(.provider) { display: none; }
+    .center { grid-column: 1 / -1; grid-row: 2; width: 100%; gap: 4px; }
+    .controls { gap: 12px; }
+    .main-button { width: 44px; height: 44px; }
+    .extras { grid-column: 2; grid-row: 1; gap: 0; }
+    .volume { display: none; }
+    .time { min-width: 34px; }
+  }
 </style>

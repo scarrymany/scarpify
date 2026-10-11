@@ -42,6 +42,9 @@ export const en = {
     providerError: "{provider} did not respond: {error}",
   },
   track: {
+    actions: "Track actions",
+    moveUp: "Move up",
+    moveDown: "Move down",
     title: "Title",
     album: "Album",
     duration: "Duration",
@@ -80,7 +83,7 @@ export const en = {
     unpin: "Unpin",
     more: "More options",
     emptyTitle: "Let’s fill this playlist",
-    emptyBody: "Right-click any track and choose “Add to playlist”.",
+    emptyBody: "Open any track’s actions and choose “Add to playlist”.",
     coverError: "Could not read this image.",
   },
   importer: {

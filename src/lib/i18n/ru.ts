@@ -42,6 +42,9 @@ export const ru: Dictionary = {
     providerError: "{provider} не ответил: {error}",
   },
   track: {
+    actions: "Действия с треком",
+    moveUp: "Переместить выше",
+    moveDown: "Переместить ниже",
     title: "Название",
     album: "Альбом",
     duration: "Длительность",
@@ -80,7 +83,7 @@ export const ru: Dictionary = {
     unpin: "Открепить",
     more: "Другие действия",
     emptyTitle: "Наполним этот плейлист",
-    emptyBody: "Нажмите правой кнопкой на любой трек и выберите «Добавить в плейлист».",
+    emptyBody: "Откройте меню любого трека и выберите «Добавить в плейлист».",
     coverError: "Не удалось прочитать изображение.",
   },
   importer: {

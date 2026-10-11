@@ -54,6 +54,7 @@ export type PlayerEvent =
   | { kind: "paused"; positionMs: number }
   | { kind: "progress"; positionMs: number }
   | { kind: "ended" }
+  | { kind: "stopped" }
   | { kind: "error"; message: string };
 
 export function trackKey(track: Track): string {

@@ -172,3 +172,36 @@ describe("queue editing", () => {
     expect(new Set(player.upcoming.map((t) => t.id))).toEqual(new Set(tracks.slice(3).map((t) => t.id)));
   });
 });
+
+describe("mobile lifecycle and output failures", () => {
+  it("allows retry after a native output error instead of staying loading forever", () => {
+    player.playTracks(makeTracks(1));
+    emit({ kind: "error", message: "No audio output" });
+    expect(player.status).toBe("paused");
+    player.toggle();
+    expect(commands("play")).toHaveLength(2);
+  });
+  it("restores a queue paused after process recreation, without starting audio", async () => {
+    player.playTracks(makeTracks(2), 1);
+    emit({ kind: "playing", positionMs: 12_000 });
+    player.persistSession();
+    vi.resetModules();
+    invoke.mockClear();
+    const restored = (await import("./player.svelte")).player;
+    await restored.init();
+    expect(restored.current?.id).toBe(makeTrack(2).id);
+    expect(restored.status).toBe("paused");
+    expect(restored.positionMs).toBe(12_000);
+    expect(commands("play")).toHaveLength(0);
+  });
+  it("ignores corrupt saved queues and invalid start indices", async () => {
+    localStorage.setItem("scarpify:playback", JSON.stringify({ queue: [null], index: 0 }));
+    vi.resetModules();
+    const restored = (await import("./player.svelte")).player;
+    await restored.init();
+    restored.playTracks(makeTracks(1), -1);
+    restored.playTracks(makeTracks(1), 2);
+    expect(restored.current).toBe(null);
+    expect(restored.status).toBe("idle");
+  });
+});

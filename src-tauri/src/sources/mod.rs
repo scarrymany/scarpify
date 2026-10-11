@@ -60,19 +60,25 @@ impl Sources {
 
     /// Fetches per-session tokens up front so the first search and play are not slower.
     pub async fn warm_up(&self) {
+        if cfg!(feature = "smoke-test") { return; }
         let _ = tokio::join!(self.youtube.warm_up(), self.soundcloud.warm_up());
     }
 
     pub async fn search_youtube(&self, query: &str) -> ProviderResult {
+        #[cfg(feature = "smoke-test")]
+        if !query.is_empty() { return ProviderResult { tracks: crate::fixtures::tracks(), error: None }; }
         self.youtube.search(query).await.into()
     }
 
     pub async fn search_soundcloud(&self, query: &str) -> ProviderResult {
+        if cfg!(feature = "smoke-test") { return ProviderResult { tracks: vec![], error: None }; }
         self.soundcloud.search(query).await.into()
     }
 
     /// Imports a playlist or album, picking the service from the link.
     pub async fn import(&self, link: &str) -> Result<Collection> {
+        #[cfg(feature = "smoke-test")]
+        if !link.is_empty() { return Ok(crate::fixtures::collection()); }
         let link = link.trim();
         if link.contains("spotify") {
             spotify::import(&self.http, link).await
@@ -87,6 +93,10 @@ impl Sources {
 
     /// Returns a cached stream when one was prefetched and is still valid, resolving otherwise.
     pub async fn stream(&self, track: &Track) -> Result<ResolvedStream> {
+        #[cfg(feature = "smoke-test")]
+        if track.id.starts_with("scarpify-test-") {
+            return Ok(ResolvedStream { source: MediaSource::Memory { data: crate::fixtures::AUDIO }, format_hint: "mp3", gain: 1.0 });
+        }
         let key = stream_key(track);
         let cached = lock(&self.streams)
             .get(&key)

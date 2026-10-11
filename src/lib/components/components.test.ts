@@ -197,3 +197,17 @@ describe("ContextMenu", () => {
     expect(screen.queryByRole("menu")).toBeNull();
   });
 });
+
+
+describe("touch controls", () => {
+  it("opens a track menu and its playlist submenu with taps", async () => {
+    render(TrackList, { tracks: [makeTrack(901)] });
+    render(ContextMenu);
+    await fireEvent.click(screen.getByRole("button", { name: "Track actions" }));
+    const parent = screen.getByRole("menuitem", { name: "Add to playlist" });
+    await fireEvent.pointerEnter(parent.closest(".entry")!);
+    await fireEvent.click(parent);
+    expect(screen.getByRole("menuitem", { name: "New playlist" })).toBeInTheDocument();
+    menu.close();
+  });
+});
