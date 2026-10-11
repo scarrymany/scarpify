@@ -118,6 +118,7 @@ export const ru: Dictionary = {
     empty: "Очередь пуста",
   },
   settings: {
+    mobileLimitations: "На Android аудиовыход выбирается в системных настройках. Статус Discord для настольного клиента недоступен.",
     title: "Настройки",
     language: "Язык",
     appearance: "Оформление",

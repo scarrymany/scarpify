@@ -118,6 +118,7 @@ export const uk: Dictionary = {
     empty: "Черга порожня",
   },
   settings: {
+    mobileLimitations: "На Android аудіовихід вибирається в системних налаштуваннях. Статус Discord для настільного клієнта недоступний.",
     title: "Налаштування",
     language: "Мова",
     appearance: "Оформлення",

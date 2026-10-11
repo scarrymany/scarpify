@@ -22,6 +22,8 @@
   import { toasts } from "$lib/state/toasts.svelte";
   import { motion } from "$lib/motion";
 
+  import { platform } from "$lib/platform";
+
   let titleBar: TitleBar;
   let queueOpen = $state(false);
   let importOpen = $state(false);
@@ -34,11 +36,11 @@
     const report = (error: unknown) => toasts.error(format(i18n.t.errors.generic, { error: errorMessage(error) }));
     player.init().catch(report);
     library.init().catch(report);
-    if (settings.audioDevice) api.setAudioDevice(settings.audioDevice).catch(report);
+    if (platform.outputSelection && settings.audioDevice) api.setAudioDevice(settings.audioDevice).catch(report);
   });
 
   $effect(() => {
-    void api.setPresenceEnabled(settings.discordPresence);
+    if (platform.discordPresence) void api.setPresenceEnabled(settings.discordPresence);
   });
 
   $effect(() => {
