@@ -12,13 +12,18 @@ export function pickCover(): Promise<string | null> {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/png, image/jpeg, image/webp, image/gif";
-    input.addEventListener("cancel", () => resolve(null));
+    // WebKit does not dispatch the chooser result to a detached input.
+    input.hidden = true;
+    document.body.append(input);
+    const finish = (value: string | null) => { input.remove(); resolve(value); };
+    const fail = (error: unknown) => { input.remove(); reject(error); };
+    input.addEventListener("cancel", () => finish(null), { once: true });
     input.addEventListener("change", () => {
       const file = input.files?.[0];
-      if (!file) return resolve(null);
-      squareJpeg(file).then(resolve, reject);
+      if (!file) return finish(null);
+      squareJpeg(file).then(finish, fail);
     });
-    input.click();
+    try { input.click(); } catch (error) { fail(error); }
   });
 }
 
