@@ -1,6 +1,9 @@
 package com.scarpify.app
 
 import android.app.Activity
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.view.View
 import android.webkit.WebView
 import androidx.core.view.WindowCompat
 import androidx.activity.OnBackPressedCallback
@@ -24,7 +27,7 @@ class UpdateArgs { var kind: String = ""; var positionMs: Long = 0 }
 @TauriPlugin
 class PlaybackPlugin(private val activity: Activity): Plugin(activity) {
     override fun load(webView: WebView) {
-        WindowCompat.getInsetsController(activity.window, activity.window.decorView).isAppearanceLightStatusBars = false
+        applyTheme(false)
         (activity as AppCompatActivity).onBackPressedDispatcher.addCallback(activity,
             object: OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
@@ -67,10 +70,18 @@ class PlaybackPlugin(private val activity: Activity): Plugin(activity) {
     @Command
     fun setTheme(invoke: Invoke) {
         val light = invoke.parseArgs(ThemeArgs::class.java).theme == "light"
+        applyTheme(light)
+        invoke.resolve()
+    }
+
+    private fun applyTheme(light: Boolean) {
+        val color = if (light) Color.rgb(233, 233, 236) else Color.rgb(12, 12, 14)
+        activity.window.setBackgroundDrawable(ColorDrawable(color))
+        activity.window.decorView.setBackgroundColor(color)
+        activity.findViewById<View>(android.R.id.content).setBackgroundColor(color)
         val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
         controller.isAppearanceLightStatusBars = light
         controller.isAppearanceLightNavigationBars = light
-        invoke.resolve()
     }
 
     @Command
