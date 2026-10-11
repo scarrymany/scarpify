@@ -24,15 +24,16 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rodio = { version = "0.22", default-features = false, features = ["playback", "symphonia-mp3", "symphonia-aac", "symphonia-isomp4"] }
-rustypipe = "0.11"
+rustypipe = { version = "0.11", default-features = false, features = ["rustls-tls-webpki-roots"] }
 tokio = { version = "1", features = ["macros", "sync", "time"] }
-reqwest = { version = "0.12", default-features = false, features = ["default-tls", "json", "gzip"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "gzip"] }
 thiserror = "2"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
-discord-rich-presence = "1.1"
 rusqlite = { version = "0.40", features = ["bundled"] }
 base64 = "0.22"
 
+[target.'cfg(not(target_os = "android"))'.dependencies]
+discord-rich-presence = "1.1"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

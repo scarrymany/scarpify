@@ -12,6 +12,8 @@
   import { format, i18n } from "$lib/i18n/index.svelte";
   import { ACCENTS, LOCALES, settings, type Theme } from "$lib/state/settings.svelte";
 
+  import { platform } from "$lib/platform";
+
   const REPOSITORY_URL = "https://github.com/scarrymany/scarpify";
 
   let version = $state("");
@@ -19,7 +21,7 @@
 
   onMount(() => {
     void getVersion().then((v) => (version = v));
-    refreshDevices();
+    if (platform.outputSelection) refreshDevices();
   });
 
   function refreshDevices() {
@@ -127,6 +129,7 @@
       </button>
     </div>
 
+    {#if platform.outputSelection}
     <div class="field">
       <span class="label-block">
         <span class="label">{i18n.t.settings.output}</span>
@@ -141,6 +144,8 @@
       />
     </div>
 
+    {/if}
+    {#if platform.discordPresence}
     <div class="field">
       <span class="label-block">
         <span class="label">{i18n.t.settings.discord}</span>
@@ -156,6 +161,9 @@
         <span class="knob"></span>
       </button>
     </div>
+    {:else}
+      <p class="hint">{i18n.t.settings.mobileLimitations}</p>
+    {/if}
   </section>
 
   <section>

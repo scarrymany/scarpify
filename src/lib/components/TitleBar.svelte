@@ -14,6 +14,8 @@
   import { nav } from "$lib/state/nav.svelte";
   import { search } from "$lib/state/search.svelte";
 
+  import { platform } from "$lib/platform";
+
   const AUTHOR_TELEGRAM_URL = "https://t.me/yeet17";
 
   const appWindow = getCurrentWindow();
@@ -21,6 +23,7 @@
   let input: HTMLInputElement;
 
   onMount(() => {
+    if (!platform.windowControls) return;
     const sync = async () => (maximized = await appWindow.isMaximized());
     void sync();
     const unlisten = appWindow.onResized(sync);
@@ -87,6 +90,7 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d={siTelegram.path} /></svg>
     </button>
 
+    {#if platform.windowControls}
     <div class="window-controls">
       <button aria-label={i18n.t.window.minimize} title={i18n.t.window.minimize} onclick={() => appWindow.minimize()}>
         <Minus />
@@ -102,6 +106,7 @@
         <X />
       </button>
     </div>
+    {/if}
   </div>
 </header>
 

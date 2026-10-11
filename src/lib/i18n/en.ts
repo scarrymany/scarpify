@@ -118,6 +118,7 @@ export const en = {
     empty: "The queue is empty",
   },
   settings: {
+    mobileLimitations: "Android manages audio output in system settings. Discord desktop presence is unavailable on Android.",
     title: "Settings",
     language: "Language",
     appearance: "Appearance",
