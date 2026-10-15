@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Duration;
 
+use futures_util::{stream, StreamExt};
 use reqwest::header::{CONTENT_RANGE, ORIGIN, RANGE, REFERER, USER_AGENT};
 use reqwest::{Client, StatusCode, Url};
 
@@ -17,6 +18,8 @@ const YOUTUBE_ORIGIN: &str = "https://www.youtube.com";
 const YOUTUBE_REFERER: &str = "https://www.youtube.com/";
 const MAX_ATTEMPTS: u32 = 3;
 const RETRY_DELAY: Duration = Duration::from_millis(400);
+/// HLS is decoded only once fully downloaded, so segments are fetched in parallel.
+const HLS_PARALLEL_SEGMENTS: usize = 6;
 
 #[derive(Debug, Clone)]
 pub enum MediaSource {
@@ -372,38 +375,47 @@ async fn download_hls(
         .await
         .map_err(describe)?;
 
-    for segment in parse_media_playlist(&playlist) {
+    let urls = parse_media_playlist(&playlist)
+        .into_iter()
+        .map(|segment| base.join(segment).map_err(|e| e.to_string()))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // `buffered` yields in playlist order, so segments are appended in sequence.
+    let mut segments = stream::iter(urls)
+        .map(|url| fetch_segment(http, url))
+        .buffered(HLS_PARALLEL_SEGMENTS);
+    while let Some(segment) = segments.next().await {
         if buffer.is_cancelled() {
             return Ok(());
         }
-        let url = base.join(segment).map_err(|e| e.to_string())?;
-        let mut attempt = 0;
-        loop {
-            let result = http
-                .get(url.clone())
-                .send()
-                .await
-                .and_then(|r| r.error_for_status());
-            let bytes = match result {
-                Ok(response) => response.bytes().await,
-                Err(err) => Err(err),
-            };
-            match bytes {
-                Ok(bytes) => {
-                    buffer.push(&bytes);
-                    break;
+        buffer.push(&segment?);
+    }
+    Ok(())
+}
+
+async fn fetch_segment(http: &Client, url: Url) -> Result<Vec<u8>, String> {
+    let mut attempt = 0;
+    loop {
+        let result = http
+            .get(url.clone())
+            .send()
+            .await
+            .and_then(|r| r.error_for_status());
+        let bytes = match result {
+            Ok(response) => response.bytes().await,
+            Err(err) => Err(err),
+        };
+        match bytes {
+            Ok(bytes) => return Ok(bytes.into()),
+            Err(err) => {
+                attempt += 1;
+                if attempt >= MAX_ATTEMPTS {
+                    return Err(describe(err));
                 }
-                Err(err) => {
-                    attempt += 1;
-                    if attempt >= MAX_ATTEMPTS {
-                        return Err(describe(err));
-                    }
-                    tokio::time::sleep(RETRY_DELAY).await;
-                }
+                tokio::time::sleep(RETRY_DELAY).await;
             }
         }
     }
-    Ok(())
 }
 
 /// Returns the init segment (if any) followed by media segment URIs, in playback order.

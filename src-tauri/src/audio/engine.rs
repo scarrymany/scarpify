@@ -229,18 +229,24 @@ async fn decode(current: &Current) -> Result<Decoder<StreamReader>> {
 
 fn build_decoder(buffer: Arc<StreamBuffer>, hint: &str) -> Result<Decoder<StreamReader>> {
     buffer.wait_for(PREBUFFER_BYTES).map_err(Error::Unavailable)?;
+    // A seekable MP4 demuxer refuses a stream of unknown length, and rodio panics on that
+    // refusal, so HLS (which has no length up front) is decoded once fully downloaded.
+    if buffer.total_len().is_none() {
+        buffer.wait_for(usize::MAX).map_err(Error::Unavailable)?;
+    }
     if buffer.is_cancelled() {
         return Err(Error::Cancelled);
     }
+    let Some(len) = buffer.total_len() else {
+        return Err(Error::Unavailable("stream length is unknown".into()));
+    };
 
-    let mut builder = DecoderBuilder::new()
+    let builder = DecoderBuilder::new()
         .with_data(StreamReader::new(buffer.clone()))
         .with_hint(hint)
         .with_seekable(true)
-        .with_gapless(true);
-    if let Some(len) = buffer.total_len() {
-        builder = builder.with_byte_len(len);
-    }
+        .with_gapless(true)
+        .with_byte_len(len);
     builder.build().map_err(|e| {
         // A reader cut off by cancellation fails to probe; that is not a broken stream.
         if buffer.is_cancelled() {

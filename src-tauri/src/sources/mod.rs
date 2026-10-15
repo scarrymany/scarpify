@@ -203,6 +203,9 @@ mod live_tests {
         let runtime = tauri::async_runtime::handle();
         runtime.spawn(download(Client::new(), stream.source, buffer.clone()));
         buffer.wait_for(128 * 1024).unwrap();
+        if buffer.total_len().is_none() {
+            buffer.wait_for(usize::MAX).unwrap();
+        }
         let mut builder = DecoderBuilder::new()
             .with_data(StreamReader::new(buffer.clone()))
             .with_hint(stream.format_hint)
