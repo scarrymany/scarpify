@@ -26,6 +26,8 @@ interface Persisted {
   accent: AccentId;
   animations: boolean;
   discordPresence: boolean;
+  /** The close button hides the window in the tray instead of quitting. */
+  closeToTray: boolean;
   /** Output device id; `null` follows the system default. */
   audioDevice: string | null;
 }
@@ -45,6 +47,7 @@ const defaults: Persisted = {
   accent: "ember",
   animations: true,
   discordPresence: true,
+  closeToTray: true,
   audioDevice: null,
 };
 
@@ -54,6 +57,7 @@ class Settings {
   accent = $state<AccentId>(defaults.accent);
   animations = $state(defaults.animations);
   discordPresence = $state(defaults.discordPresence);
+  closeToTray = $state(defaults.closeToTray);
   audioDevice = $state<string | null>(defaults.audioDevice);
 
   constructor() {
@@ -63,6 +67,7 @@ class Settings {
     this.accent = ACCENTS.some((a) => a.id === stored.accent) ? stored.accent : defaults.accent;
     this.animations = stored.animations;
     this.discordPresence = stored.discordPresence;
+    this.closeToTray = stored.closeToTray;
     this.audioDevice = stored.audioDevice;
   }
 
@@ -77,6 +82,7 @@ class Settings {
       accent: this.accent,
       animations: this.animations,
       discordPresence: this.discordPresence,
+      closeToTray: this.closeToTray,
       audioDevice: this.audioDevice,
     });
   }

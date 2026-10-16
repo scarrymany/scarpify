@@ -19,6 +19,7 @@ export function currentPrefs(): TerminalPrefs {
     muted: player.muted,
     audioDevice: settings.audioDevice,
     discordPresence: settings.discordPresence,
+    closeToTray: settings.closeToTray,
   };
 }
 
@@ -43,6 +44,7 @@ export async function applyTerminalHandoff(): Promise<void> {
   if (ACCENTS.some((a) => a.id === prefs.accent)) settings.accent = prefs.accent as AccentId;
   settings.animations = prefs.animations;
   settings.discordPresence = prefs.discordPresence;
+  settings.closeToTray = prefs.closeToTray;
   settings.audioDevice = prefs.audioDevice;
   settings.persist();
 

@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { LibrarySnapshot, OutputDevice, PlayerEvent, ProviderResult, SavedCollection, Track } from "./types";
 
 const PLAYER_EVENT = "player";
+const TRAY_TOGGLE_EVENT = "tray-toggle";
 
 export const api = {
   searchYoutube: (query: string) => invoke<ProviderResult>("search_youtube", { query }),
@@ -52,6 +53,7 @@ export interface TerminalPrefs {
   muted: boolean;
   audioDevice: string | null;
   discordPresence: boolean;
+  closeToTray: boolean;
 }
 
 /** What Discord shows under "Listening to SCARPIFY". */
@@ -63,6 +65,11 @@ export interface NowPlaying {
   url: string | null;
   positionMs: number;
   durationMs: number | null;
+}
+
+/** "Play / Pause" picked in the tray icon's menu. */
+export function onTrayToggle(handler: () => void): Promise<UnlistenFn> {
+  return listen(TRAY_TOGGLE_EVENT, handler);
 }
 
 export function onPlayerEvent(handler: (event: PlayerEvent) => void): Promise<UnlistenFn> {

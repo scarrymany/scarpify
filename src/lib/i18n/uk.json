@@ -140,7 +140,9 @@
     "terminalMissingTitle": "Потрібен Windows Terminal",
     "terminalMissingBody": "Режим термінала працює у Windows Terminal, а його тут не встановлено. SCARPIFY може завантажити офіційну portable-збірку Microsoft з GitHub (близько 12 МБ) у свою папку, у систему нічого не встановлюється.",
     "terminalDownload": "Завантажити",
-    "terminalDownloading": "Завантажуємо Windows Terminal…"
+    "terminalDownloading": "Завантажуємо Windows Terminal…",
+    "tray": "Згортати в трей",
+    "trayHint": "Хрестик ховає SCARPIFY біля годинника, музика продовжує грати. Вийти можна з меню значка в треї."
   },
   "errors": {
     "playback": "Не вдалося відтворити «{title}»: {error}",
@@ -163,5 +165,10 @@
     "windowTitle": "Віконний режим",
     "windowHint": "Повернутися в повне вікно SCARPIFY.",
     "windowAction": "Перейти у вікно"
+  },
+  "tray": {
+    "open": "Відкрити SCARPIFY",
+    "playPause": "Відтворити / пауза",
+    "quit": "Вийти з SCARPIFY"
   }
 }

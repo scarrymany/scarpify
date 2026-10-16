@@ -8,12 +8,14 @@ mod sources;
 #[cfg(windows)]
 mod terminal_host;
 #[cfg(desktop)]
+mod tray;
+#[cfg(desktop)]
 mod tui;
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 
 use audio::devices::{self, OutputDevice};
 use audio::engine::{AudioEngine, LoadRequest};
@@ -243,6 +245,8 @@ async fn install_terminal(app: AppHandle) -> Result<()> {
 /// Keeps the shared settings file current, so the terminal mode always starts with them.
 #[tauri::command]
 async fn sync_terminal_prefs(prefs: UiPrefs, app: AppHandle) -> Result<()> {
+    #[cfg(desktop)]
+    app.state::<tray::Tray>().update(&prefs.locale, prefs.close_to_tray);
     let prefs = UiPrefs { mode: Mode::Gui, ..prefs };
     app_dirs(&app)?
         .save_prefs(&prefs)
@@ -290,17 +294,38 @@ pub fn run() {
     #[cfg(desktop)]
     run_terminal_if_requested();
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // Registered first: a second launch only brings the running window back, e.g. from the tray.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| tray::show(app)));
+
+    builder
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let state = init_state(app.handle())?;
             app.manage(state);
+
+            #[cfg(desktop)]
+            {
+                let prefs = app_dirs(app.handle())?.load_prefs();
+                let tray = tray::Tray::create(app.handle(), &prefs.locale, prefs.close_to_tray)?;
+                app.manage(tray);
+            }
 
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 handle.state::<AppState>().sources.warm_up().await;
             });
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            #[cfg(desktop)]
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                if window.app_handle().state::<tray::Tray>().closes_to_tray() {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             search_youtube,

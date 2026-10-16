@@ -140,7 +140,9 @@
     "terminalMissingTitle": "Windows Terminal is needed",
     "terminalMissingBody": "The terminal mode runs in Windows Terminal, which is not installed here. SCARPIFY can download Microsoft's official portable build from GitHub (about 12 MB) into its own folder; nothing is installed system-wide.",
     "terminalDownload": "Download",
-    "terminalDownloading": "Downloading Windows Terminal…"
+    "terminalDownloading": "Downloading Windows Terminal…",
+    "tray": "Close to tray",
+    "trayHint": "The close button hides SCARPIFY next to the clock and the music keeps playing. Quit from the tray icon's menu."
   },
   "errors": {
     "playback": "Could not play “{title}”: {error}",
@@ -161,5 +163,10 @@
     "windowTitle": "Window mode",
     "windowHint": "Back to the full SCARPIFY window.",
     "windowAction": "Switch to window"
+  },
+  "tray": {
+    "open": "Open SCARPIFY",
+    "playPause": "Play / Pause",
+    "quit": "Quit SCARPIFY"
   }
 }

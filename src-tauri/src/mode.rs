@@ -60,6 +60,8 @@ pub struct UiPrefs {
     pub muted: bool,
     pub audio_device: Option<String>,
     pub discord_presence: bool,
+    /// The window's close button hides it in the tray instead of quitting.
+    pub close_to_tray: bool,
 }
 
 impl Default for UiPrefs {
@@ -74,6 +76,7 @@ impl Default for UiPrefs {
             muted: false,
             audio_device: None,
             discord_presence: true,
+            close_to_tray: true,
         }
     }
 }

@@ -179,6 +179,22 @@
         <span class="knob"></span>
       </button>
     </div>
+
+    <div class="field">
+      <span class="label-block">
+        <span class="label">{i18n.t.settings.tray}</span>
+        <span class="hint">{i18n.t.settings.trayHint}</span>
+      </span>
+      <button
+        class="switch"
+        role="switch"
+        aria-checked={settings.closeToTray}
+        aria-label={i18n.t.settings.tray}
+        onclick={() => update(() => (settings.closeToTray = !settings.closeToTray))}
+      >
+        <span class="knob"></span>
+      </button>
+    </div>
   </section>
 
   <section>

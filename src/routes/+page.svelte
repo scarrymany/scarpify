@@ -13,7 +13,7 @@
   import SearchView from "$lib/views/SearchView.svelte";
   import CollectionView from "$lib/views/CollectionView.svelte";
   import SettingsView from "$lib/views/SettingsView.svelte";
-  import { api, errorMessage } from "$lib/api";
+  import { api, errorMessage, onTrayToggle } from "$lib/api";
   import { format, i18n } from "$lib/i18n/index.svelte";
   import { library } from "$lib/state/library.svelte";
   import { nav } from "$lib/state/nav.svelte";
@@ -48,6 +48,11 @@
 
   $effect(() => {
     void api.setPresenceEnabled(settings.discordPresence);
+  });
+
+  onMount(() => {
+    const unlisten = onTrayToggle(() => player.toggle());
+    return () => void unlisten.then((stop) => stop());
   });
 
   $effect(() => {
