@@ -45,12 +45,12 @@ seeded generator, so each run produces the same video.
 
 It needs `ffmpeg` on the PATH and a Chrome or Chromium. The script looks in common places;
 set `CHROME_PATH` to point at another one. WebGL runs through SwiftShader, so no GPU is
-required (about 6 minutes for the full video on 4 CPU cores).
+required; the full video took about 33 minutes on 4 CPU cores, a GPU-backed Chrome is faster.
 
 Useful options:
 
 ```sh
-node scripts/render.mjs --stills 2,9,14     # PNG frames in out/stills/
+node scripts/render.mjs --stills 2,9,14     # PNG frames in out/stills/ (seconds each)
 node scripts/render.mjs --from 12 --to 16   # a partial render
 ```
 
