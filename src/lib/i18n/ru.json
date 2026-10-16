@@ -1,0 +1,167 @@
+{
+  "nav": {
+    "home": "Главная",
+    "search": "Поиск",
+    "library": "Моя медиатека",
+    "liked": "Любимые треки",
+    "settings": "Настройки",
+    "back": "Назад",
+    "forward": "Вперёд"
+  },
+  "window": {
+    "minimize": "Свернуть",
+    "maximize": "Развернуть",
+    "restore": "Восстановить",
+    "close": "Закрыть",
+    "author": "Автор в Telegram"
+  },
+  "home": {
+    "morning": "Доброе утро",
+    "afternoon": "Добрый день",
+    "evening": "Добрый вечер",
+    "night": "Доброй ночи",
+    "recent": "Недавно прослушанное",
+    "liked": "Любимые треки",
+    "playlists": "Ваши плейлисты",
+    "emptyTitle": "Начните с поиска",
+    "emptyBody": "Ищите треки на YouTube Music и SoundCloud или импортируйте плейлист по ссылке.",
+    "searchAction": "Искать музыку"
+  },
+  "search": {
+    "placeholder": "Что хотите послушать?",
+    "clear": "Очистить поиск",
+    "all": "Все",
+    "tracks": "Треки",
+    "topResult": "Лучший результат",
+    "noResults": "По запросу «{query}» ничего не найдено",
+    "noResultsHint": "Проверьте написание или сократите запрос.",
+    "idleTitle": "Поиск сразу в двух сервисах",
+    "idleBody": "Результаты YouTube Music и SoundCloud показываются рядом.",
+    "providerError": "{provider} не ответил: {error}"
+  },
+  "track": {
+    "title": "Название",
+    "album": "Альбом",
+    "duration": "Длительность",
+    "play": "Слушать",
+    "pause": "Пауза",
+    "like": "Добавить в любимые треки",
+    "unlike": "Убрать из любимых треков",
+    "addToQueue": "Добавить в очередь",
+    "openSource": "Открыть в {provider}",
+    "viaYoutube": "Найдено на YouTube Music"
+  },
+  "collection": {
+    "playlist": "Плейлист",
+    "album": "Альбом",
+    "importedFrom": "Импортировано из",
+    "remove": "Удалить из медиатеки",
+    "shuffle": "Перемешать",
+    "empty": "Треков пока нет",
+    "likedEmptyTitle": "Здесь появятся понравившиеся треки",
+    "likedEmptyBody": "Сохраняйте треки значком сердца."
+  },
+  "playlist": {
+    "defaultName": "Мой плейлист №{number}",
+    "create": "Создать плейлист",
+    "added": "Добавлено в «{name}»",
+    "addTo": "Добавить в плейлист",
+    "newPlaylist": "Новый плейлист",
+    "removeFrom": "Удалить из этого плейлиста",
+    "rename": "Переименовать",
+    "changeCover": "Сменить обложку",
+    "resetCover": "Вернуть исходную обложку",
+    "delete": "Удалить",
+    "deleteTitle": "Удалить «{name}»?",
+    "deleteBody": "Плейлист и порядок треков в нём будут удалены навсегда.",
+    "pin": "Закрепить",
+    "unpin": "Открепить",
+    "more": "Другие действия",
+    "emptyTitle": "Наполним этот плейлист",
+    "emptyBody": "Нажмите правой кнопкой на любой трек и выберите «Добавить в плейлист».",
+    "coverError": "Не удалось прочитать изображение."
+  },
+  "importer": {
+    "action": "Импорт плейлиста",
+    "title": "Импорт плейлиста",
+    "body": "Вставьте ссылку на публичный плейлист или альбом из Spotify, SoundCloud или YouTube Music. Аккаунты не нужны: треки Spotify играют через YouTube Music.",
+    "placeholder": "https://…",
+    "submit": "Импортировать",
+    "cancel": "Отмена",
+    "working": "Импортируем…",
+    "invalid": "Вставьте ссылку на плейлист или альбом из Spotify, SoundCloud или YouTube Music.",
+    "done": "Плейлист «{name}» импортирован"
+  },
+  "player": {
+    "play": "Слушать",
+    "pause": "Пауза",
+    "next": "Следующий",
+    "previous": "Предыдущий",
+    "shuffle": "Перемешать",
+    "repeat": "Повтор",
+    "repeatOne": "Повтор трека",
+    "queue": "Очередь",
+    "volume": "Громкость",
+    "mute": "Выключить звук",
+    "unmute": "Включить звук",
+    "nothing": "Сейчас ничего не играет",
+    "loading": "Загрузка…"
+  },
+  "queue": {
+    "title": "Очередь",
+    "nowPlaying": "Сейчас играет",
+    "next": "Далее",
+    "clear": "Очистить очередь",
+    "shuffle": "Перемешать очередь",
+    "empty": "Очередь пуста"
+  },
+  "settings": {
+    "title": "Настройки",
+    "language": "Язык",
+    "appearance": "Оформление",
+    "theme": "Тема",
+    "themeDark": "Тёмная",
+    "themeLight": "Светлая",
+    "themeSystem": "Системная",
+    "accent": "Акцентный цвет",
+    "motion": "Анимации",
+    "motionHint": "Если выключить, все переходы станут мгновенными.",
+    "discord": "Показывать в Discord",
+    "discordHint": "Статус в Discord показывает трек, который вы слушаете.",
+    "output": "Устройство вывода",
+    "outputDefault": "Системное по умолчанию",
+    "outputHint": "Системное устройство переключается вслед за Windows, например когда вы подключаете наушники.",
+    "about": "О программе",
+    "aboutBody": "Музыкальный плеер с открытым исходным кодом и без рекламы. Лицензия GPL‑3.0.",
+    "sourceCode": "Исходный код",
+    "terminal": "Режим терминала",
+    "terminalHint": "Тот же плеер в Windows Terminal с управлением мышью, примерно в 30 МБ памяти.",
+    "terminalAction": "Перейти в терминал",
+    "terminalMissingTitle": "Нужен Windows Terminal",
+    "terminalMissingBody": "Режим терминала работает в Windows Terminal, а он здесь не установлен. SCARPIFY может скачать официальную portable-сборку Microsoft с GitHub (около 12 МБ) в свою папку, в систему ничего не устанавливается.",
+    "terminalDownload": "Скачать",
+    "terminalDownloading": "Скачиваем Windows Terminal…"
+  },
+  "errors": {
+    "playback": "Не удалось воспроизвести «{title}»: {error}",
+    "generic": "Что-то пошло не так: {error}"
+  },
+  "providers": {
+    "youtube": "YouTube Music",
+    "soundcloud": "SoundCloud",
+    "spotify": "Spotify"
+  },
+  "plural": {
+    "tracks": {
+      "one": "{count} трек",
+      "few": "{count} трека",
+      "many": "{count} треков",
+      "other": "{count} трека"
+    }
+  },
+  "tui": {
+    "windowTitle": "Оконный режим",
+    "windowHint": "Вернуться в полное окно SCARPIFY.",
+    "windowAction": "Перейти в окно"
+  }
+}

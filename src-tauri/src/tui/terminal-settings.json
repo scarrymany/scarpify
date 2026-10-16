@@ -1,0 +1,40 @@
+{
+  "$schema": "https://aka.ms/terminal-profiles-schema",
+  "alwaysShowTabs": false,
+  "showTabsInTitlebar": true,
+  "theme": "dark",
+  "profiles": {
+    "defaults": {
+      "colorScheme": "SCARPIFY",
+      "font": { "face": "Cascadia Mono" },
+      "padding": "0",
+      "closeOnExit": "always",
+      "bellStyle": "none"
+    }
+  },
+  "schemes": [
+    {
+      "name": "SCARPIFY",
+      "background": "#0C0C0E",
+      "foreground": "#EDEDEF",
+      "cursorColor": "#EC6A45",
+      "selectionBackground": "#2D2D33",
+      "black": "#0C0C0E",
+      "red": "#F2777A",
+      "green": "#3FBF8A",
+      "yellow": "#E3A33C",
+      "blue": "#4F8CF0",
+      "purple": "#8B7FF0",
+      "cyan": "#5EC4D6",
+      "white": "#EDEDEF",
+      "brightBlack": "#6E6E78",
+      "brightRed": "#F2777A",
+      "brightGreen": "#3FBF8A",
+      "brightYellow": "#E3A33C",
+      "brightBlue": "#4F8CF0",
+      "brightPurple": "#8B7FF0",
+      "brightCyan": "#5EC4D6",
+      "brightWhite": "#FFFFFF"
+    }
+  ]
+}

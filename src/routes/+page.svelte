@@ -21,10 +21,13 @@
   import { settings } from "$lib/state/settings.svelte";
   import { toasts } from "$lib/state/toasts.svelte";
   import { motion } from "$lib/motion";
+  import { applyTerminalHandoff, currentPrefs, syncTerminalPrefs } from "$lib/terminal";
 
   let titleBar: TitleBar;
   let queueOpen = $state(false);
   let importOpen = $state(false);
+  /** Syncing waits for the terminal's settings to be applied, or it would overwrite them. */
+  let handoffDone = $state(false);
 
   const route = $derived(nav.current);
   const routeKey = $derived(route.name === "collection" ? `collection:${route.id}` : route.name);
@@ -32,13 +35,23 @@
 
   onMount(() => {
     const report = (error: unknown) => toasts.error(format(i18n.t.errors.generic, { error: errorMessage(error) }));
-    player.init().catch(report);
-    library.init().catch(report);
-    if (settings.audioDevice) api.setAudioDevice(settings.audioDevice).catch(report);
+    // Settings changed in the terminal mode come first, so the player starts with them.
+    applyTerminalHandoff()
+      .catch(report)
+      .finally(() => {
+        handoffDone = true;
+        player.init().catch(report);
+        library.init().catch(report);
+        if (settings.audioDevice) api.setAudioDevice(settings.audioDevice).catch(report);
+      });
   });
 
   $effect(() => {
     void api.setPresenceEnabled(settings.discordPresence);
+  });
+
+  $effect(() => {
+    if (handoffDone) syncTerminalPrefs(currentPrefs());
   });
 
   $effect(() => {

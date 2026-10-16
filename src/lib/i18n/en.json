@@ -1,0 +1,165 @@
+{
+  "nav": {
+    "home": "Home",
+    "search": "Search",
+    "library": "Your library",
+    "liked": "Liked tracks",
+    "settings": "Settings",
+    "back": "Go back",
+    "forward": "Go forward"
+  },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close",
+    "author": "Author on Telegram"
+  },
+  "home": {
+    "morning": "Good morning",
+    "afternoon": "Good afternoon",
+    "evening": "Good evening",
+    "night": "Good night",
+    "recent": "Recently played",
+    "liked": "Liked tracks",
+    "playlists": "Your playlists",
+    "emptyTitle": "Start with a search",
+    "emptyBody": "Find tracks on YouTube Music and SoundCloud, or import a playlist by link.",
+    "searchAction": "Search music"
+  },
+  "search": {
+    "placeholder": "What do you want to listen to?",
+    "clear": "Clear search",
+    "all": "All",
+    "tracks": "Tracks",
+    "topResult": "Top result",
+    "noResults": "Nothing found for “{query}”",
+    "noResultsHint": "Check the spelling or try fewer words.",
+    "idleTitle": "Search two services at once",
+    "idleBody": "Results from YouTube Music and SoundCloud appear side by side.",
+    "providerError": "{provider} did not respond: {error}"
+  },
+  "track": {
+    "title": "Title",
+    "album": "Album",
+    "duration": "Duration",
+    "play": "Play",
+    "pause": "Pause",
+    "like": "Save to Liked tracks",
+    "unlike": "Remove from Liked tracks",
+    "addToQueue": "Add to queue",
+    "openSource": "Open on {provider}",
+    "viaYoutube": "Matched on YouTube Music"
+  },
+  "collection": {
+    "playlist": "Playlist",
+    "album": "Album",
+    "importedFrom": "Imported from",
+    "remove": "Remove from library",
+    "shuffle": "Shuffle play",
+    "empty": "No tracks yet",
+    "likedEmptyTitle": "Songs you like will appear here",
+    "likedEmptyBody": "Save tracks with the heart icon."
+  },
+  "playlist": {
+    "defaultName": "My playlist #{number}",
+    "create": "Create playlist",
+    "added": "Added to “{name}”",
+    "addTo": "Add to playlist",
+    "newPlaylist": "New playlist",
+    "removeFrom": "Remove from this playlist",
+    "rename": "Rename",
+    "changeCover": "Change cover",
+    "resetCover": "Restore original cover",
+    "delete": "Delete",
+    "deleteTitle": "Delete “{name}”?",
+    "deleteBody": "The playlist and its track order will be gone for good.",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "more": "More options",
+    "emptyTitle": "Let’s fill this playlist",
+    "emptyBody": "Right-click any track and choose “Add to playlist”.",
+    "coverError": "Could not read this image."
+  },
+  "importer": {
+    "action": "Import playlist",
+    "title": "Import a playlist",
+    "body": "Paste a link to a public playlist or album from Spotify, SoundCloud or YouTube Music. No accounts needed: Spotify tracks are played through YouTube Music.",
+    "placeholder": "https://…",
+    "submit": "Import",
+    "cancel": "Cancel",
+    "working": "Importing…",
+    "invalid": "Paste a link to a playlist or album from Spotify, SoundCloud or YouTube Music.",
+    "done": "Imported “{name}”"
+  },
+  "player": {
+    "play": "Play",
+    "pause": "Pause",
+    "next": "Next",
+    "previous": "Previous",
+    "shuffle": "Shuffle",
+    "repeat": "Repeat",
+    "repeatOne": "Repeat one",
+    "queue": "Queue",
+    "volume": "Volume",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "nothing": "Nothing is playing",
+    "loading": "Loading…"
+  },
+  "queue": {
+    "title": "Queue",
+    "nowPlaying": "Now playing",
+    "next": "Next up",
+    "clear": "Clear queue",
+    "shuffle": "Shuffle queue",
+    "empty": "The queue is empty"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "themeDark": "Dark",
+    "themeLight": "Light",
+    "themeSystem": "System",
+    "accent": "Accent color",
+    "motion": "Animations",
+    "motionHint": "Turn off to keep every transition instant.",
+    "discord": "Show in Discord",
+    "discordHint": "Your Discord status shows the track you are listening to.",
+    "output": "Output device",
+    "outputDefault": "System default",
+    "outputHint": "The system default follows Windows, for example when headphones are plugged in.",
+    "about": "About",
+    "aboutBody": "Open-source music player without ads. Licensed under GPL‑3.0.",
+    "sourceCode": "Source code",
+    "terminal": "Terminal mode",
+    "terminalHint": "The same player in Windows Terminal, controlled with the mouse, in about 30 MB of memory.",
+    "terminalAction": "Switch to terminal",
+    "terminalMissingTitle": "Windows Terminal is needed",
+    "terminalMissingBody": "The terminal mode runs in Windows Terminal, which is not installed here. SCARPIFY can download Microsoft's official portable build from GitHub (about 12 MB) into its own folder; nothing is installed system-wide.",
+    "terminalDownload": "Download",
+    "terminalDownloading": "Downloading Windows Terminal…"
+  },
+  "errors": {
+    "playback": "Could not play “{title}”: {error}",
+    "generic": "Something went wrong: {error}"
+  },
+  "providers": {
+    "youtube": "YouTube Music",
+    "soundcloud": "SoundCloud",
+    "spotify": "Spotify"
+  },
+  "plural": {
+    "tracks": {
+      "one": "{count} track",
+      "other": "{count} tracks"
+    }
+  },
+  "tui": {
+    "windowTitle": "Window mode",
+    "windowHint": "Back to the full SCARPIFY window.",
+    "windowAction": "Switch to window"
+  }
+}

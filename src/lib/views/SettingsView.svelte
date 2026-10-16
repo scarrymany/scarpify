@@ -3,6 +3,7 @@
   import { getVersion } from "@tauri-apps/api/app";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
+  import TerminalWindow from "phosphor-svelte/lib/TerminalWindow";
   import Check from "phosphor-svelte/lib/Check";
   import Select from "$lib/components/Select.svelte";
   import { api, errorMessage } from "$lib/api";
@@ -11,6 +12,8 @@
   import { glide } from "$lib/glide";
   import { format, i18n } from "$lib/i18n/index.svelte";
   import { ACCENTS, LOCALES, settings, type Theme } from "$lib/state/settings.svelte";
+  import { ui } from "$lib/state/ui.svelte";
+  import { openTerminal } from "$lib/terminal";
 
   const REPOSITORY_URL = "https://github.com/scarrymany/scarpify";
 
@@ -46,6 +49,26 @@
     { id: "light", label: i18n.t.settings.themeLight },
     { id: "system", label: i18n.t.settings.themeSystem },
   ]);
+
+  let switching = $state(false);
+
+  /** The window closes once the terminal has started; it only stays open if that failed. */
+  async function openTerminalMode() {
+    const t = i18n.t.settings;
+    switching = true;
+    try {
+      if (await openTerminal()) return;
+      const confirmed = await ui.confirm(t.terminalMissingTitle, t.terminalMissingBody, t.terminalDownload);
+      if (!confirmed) return;
+      toasts.show(t.terminalDownloading);
+      await api.installTerminal();
+      await openTerminal();
+    } catch (error) {
+      toasts.error(format(i18n.t.errors.generic, { error: errorMessage(error) }));
+    } finally {
+      switching = false;
+    }
+  }
 
   function update(change: () => void) {
     change();
@@ -154,6 +177,16 @@
         onclick={() => update(() => (settings.discordPresence = !settings.discordPresence))}
       >
         <span class="knob"></span>
+      </button>
+    </div>
+  </section>
+
+  <section>
+    <h2>{i18n.t.settings.terminal}</h2>
+    <div class="field">
+      <span class="hint terminal-hint">{i18n.t.settings.terminalHint}</span>
+      <button class="pill-button secondary" disabled={switching} onclick={openTerminalMode}>
+        <TerminalWindow />{i18n.t.settings.terminalAction}
       </button>
     </div>
   </section>
@@ -342,6 +375,10 @@
   .switch[aria-checked="true"] .knob {
     background: var(--accent-contrast);
     transform: translateX(20px);
+  }
+
+  .terminal-hint {
+    max-width: 52ch;
   }
 
   .about {

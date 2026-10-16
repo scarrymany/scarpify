@@ -1,9 +1,14 @@
 mod audio;
 mod error;
 mod library;
+mod mode;
 mod model;
 mod presence;
 mod sources;
+#[cfg(windows)]
+mod terminal_host;
+#[cfg(desktop)]
+mod tui;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,6 +19,7 @@ use audio::devices::{self, OutputDevice};
 use audio::engine::{AudioEngine, LoadRequest};
 use error::{Error, Result};
 use library::{LegacyLibrary, Library, SavedCollection, Snapshot};
+use mode::{AppDirs, Mode, UiPrefs};
 use model::{ProviderResult, Track};
 use presence::{NowPlaying, Presence};
 use sources::Sources;
@@ -55,20 +61,23 @@ async fn import_playlist(link: String, state: State<'_, AppState>) -> Result<Sav
 
 #[tauri::command]
 async fn play(track: Track, state: State<'_, AppState>) -> Result<()> {
-    match start_playback(&state, &track).await {
+    play_track(&state.sources, &state.engine, &track).await
+}
+
+async fn play_track(sources: &Sources, engine: &AudioEngine, track: &Track) -> Result<()> {
+    match start_playback(sources, engine, track).await {
         // A cached URL can expire or be refused by the CDN; one fresh resolution fixes that.
         Err(err) if !matches!(err, Error::Cancelled) => {
-            state.sources.forget_stream(&track);
-            start_playback(&state, &track).await
+            sources.forget_stream(track);
+            start_playback(sources, engine, track).await
         }
         result => result,
     }
 }
 
-async fn start_playback(state: &AppState, track: &Track) -> Result<()> {
-    let stream = state.sources.stream(track).await?;
-    state
-        .engine
+async fn start_playback(sources: &Sources, engine: &AudioEngine, track: &Track) -> Result<()> {
+    let stream = sources.stream(track).await?;
+    engine
         .load(LoadRequest {
             source: stream.source,
             format_hint: stream.format_hint,
@@ -195,11 +204,69 @@ async fn collections_reorder(ids: Vec<String>, state: State<'_, AppState>) -> Re
     state.library.reorder_collections(&ids)
 }
 
-fn init_state(app: &AppHandle) -> std::result::Result<AppState, Box<dyn std::error::Error>> {
-    let http = reqwest::Client::builder()
+fn app_dirs(app: &AppHandle) -> Result<AppDirs> {
+    let unavailable = |e: tauri::Error| Error::Unavailable(e.to_string());
+    Ok(AppDirs {
+        data: app.path().app_data_dir().map_err(unavailable)?,
+        cache: app.path().app_cache_dir().map_err(unavailable)?,
+    })
+}
+
+/// Hands over to the terminal mode in Windows Terminal; `false` means none is available yet.
+#[cfg(windows)]
+#[tauri::command]
+async fn open_terminal_mode(prefs: UiPrefs, app: AppHandle) -> Result<bool> {
+    let dirs = app_dirs(&app)?;
+    let Some(terminal) = terminal_host::find(&dirs.cache) else { return Ok(false) };
+
+    let io_error = |e: std::io::Error| Error::Unavailable(e.to_string());
+    let prefs = UiPrefs { mode: Mode::Tui, ..prefs };
+    dirs.save_prefs(&prefs).map_err(io_error)?;
+    let executable = std::env::current_exe().map_err(io_error)?;
+    terminal_host::launch(&terminal, &executable, mode::accent_hex(&prefs.accent)).map_err(io_error)?;
+    app.exit(0);
+    Ok(true)
+}
+
+/// Downloads Microsoft's portable Windows Terminal for systems that do not have one.
+#[cfg(windows)]
+#[tauri::command]
+async fn install_terminal(app: AppHandle) -> Result<()> {
+    let dirs = app_dirs(&app)?;
+    let http = http_client()?;
+    terminal_host::install(&http, &dirs.cache)
+        .await
+        .map(drop)
+        .map_err(|e| Error::Unavailable(e.to_string()))
+}
+
+/// Keeps the shared settings file current, so the terminal mode always starts with them.
+#[tauri::command]
+async fn sync_terminal_prefs(prefs: UiPrefs, app: AppHandle) -> Result<()> {
+    let prefs = UiPrefs { mode: Mode::Gui, ..prefs };
+    app_dirs(&app)?
+        .save_prefs(&prefs)
+        .map_err(|e| Error::Unavailable(e.to_string()))
+}
+
+/// Settings changed in the terminal, handed to the window it switched back to.
+#[tauri::command]
+fn terminal_handoff(app: AppHandle) -> Result<Option<UiPrefs>> {
+    if !mode::has_flag(mode::GUI_FLAG) {
+        return Ok(None);
+    }
+    Ok(Some(app_dirs(&app)?.load_prefs()))
+}
+
+fn http_client() -> reqwest::Result<reqwest::Client> {
+    reqwest::Client::builder()
         .connect_timeout(CONNECT_TIMEOUT)
         .gzip(true)
-        .build()?;
+        .build()
+}
+
+fn init_state(app: &AppHandle) -> std::result::Result<AppState, Box<dyn std::error::Error>> {
+    let http = http_client()?;
     let cache_dir = app.path().app_cache_dir()?;
     std::fs::create_dir_all(&cache_dir)?;
     let data_dir = app.path().app_data_dir()?;
@@ -220,6 +287,9 @@ fn init_state(app: &AppHandle) -> std::result::Result<AppState, Box<dyn std::err
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(desktop)]
+    run_terminal_if_requested();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -259,8 +329,37 @@ pub fn run() {
             collection_set_cover,
             collection_set_pinned,
             collection_delete,
-            collections_reorder
+            collections_reorder,
+            #[cfg(windows)]
+            open_terminal_mode,
+            #[cfg(windows)]
+            install_terminal,
+            terminal_handoff,
+            sync_terminal_prefs
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// Runs the terminal interface when it is asked for; returns only if the window should open.
+#[cfg(desktop)]
+fn run_terminal_if_requested() {
+    let Some(dirs) = AppDirs::locate() else { return };
+    let prefs = dirs.load_prefs();
+    if mode::requested(std::env::args().skip(1), &prefs) != Mode::Tui {
+        if prefs.mode == Mode::Tui {
+            // `--gui` was passed explicitly; the next plain launch opens the window too.
+            let _ = dirs.save_prefs(&UiPrefs { mode: Mode::Gui, ..prefs });
+        }
+        return;
+    }
+
+    match tui::run(&dirs, prefs.clone()) {
+        Ok(()) => std::process::exit(0),
+        // A terminal that cannot start must not lock the user out: fall back to the window.
+        Err(err) => {
+            eprintln!("terminal mode failed: {err}");
+            let _ = dirs.save_prefs(&UiPrefs { mode: Mode::Gui, ..prefs });
+        }
+    }
 }

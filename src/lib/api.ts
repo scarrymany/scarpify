@@ -19,6 +19,11 @@ export const api = {
   setAudioDevice: (device: string | null) => invoke<void>("set_audio_device", { device }),
   updatePresence: (nowPlaying: NowPlaying | null) => invoke<void>("update_presence", { nowPlaying }),
   setPresenceEnabled: (enabled: boolean) => invoke<void>("set_presence_enabled", { enabled }),
+  /** `false` when no Windows Terminal is available yet; see `installTerminal`. */
+  openTerminalMode: (prefs: TerminalPrefs) => invoke<boolean>("open_terminal_mode", { prefs }),
+  installTerminal: () => invoke<void>("install_terminal"),
+  terminalHandoff: () => invoke<TerminalPrefs | null>("terminal_handoff"),
+  syncTerminalPrefs: (prefs: TerminalPrefs) => invoke<void>("sync_terminal_prefs", { prefs }),
 
   librarySnapshot: () => invoke<LibrarySnapshot>("library_snapshot"),
   libraryImportLegacy: (legacy: object) => invoke<LibrarySnapshot>("library_import_legacy", { legacy }),
@@ -35,6 +40,19 @@ export const api = {
   deleteCollection: (id: string) => invoke<void>("collection_delete", { id }),
   reorderCollections: (ids: string[]) => invoke<void>("collections_reorder", { ids }),
 };
+
+/** Settings shared with the terminal mode, which cannot read the webview's storage. */
+export interface TerminalPrefs {
+  locale: string;
+  theme: "dark" | "light" | "system";
+  /** Accent id, e.g. "ember". */
+  accent: string;
+  animations: boolean;
+  volume: number;
+  muted: boolean;
+  audioDevice: string | null;
+  discordPresence: boolean;
+}
 
 /** What Discord shows under "Listening to SCARPIFY". */
 export interface NowPlaying {
