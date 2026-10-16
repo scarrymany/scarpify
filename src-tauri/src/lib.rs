@@ -223,7 +223,7 @@ async fn open_terminal_mode(prefs: UiPrefs, app: AppHandle) -> Result<bool> {
     let prefs = UiPrefs { mode: Mode::Tui, ..prefs };
     dirs.save_prefs(&prefs).map_err(io_error)?;
     let executable = std::env::current_exe().map_err(io_error)?;
-    terminal_host::launch(&terminal, &executable, mode::accent_hex(&prefs.accent)).map_err(io_error)?;
+    terminal_host::launch(&terminal, &executable).map_err(io_error)?;
     app.exit(0);
     Ok(true)
 }

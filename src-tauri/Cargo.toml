@@ -1,6 +1,6 @@
 [package]
 name = "scarpify"
-version = "0.2.0"
+version = "0.2.1"
 description = "Ad-free open-source music player for YouTube Music and SoundCloud"
 authors = ["SCARPIFY contributors"]
 license = "GPL-3.0-or-later"
@@ -35,6 +35,7 @@ base64 = "0.22"
 sha2 = "0.10"
 zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+resvg = { version = "0.48", default-features = false }
 ratatui-image = { version = "11.1", default-features = false, features = ["crossterm"] }
 unicode-width = "0.2"
 ratatui = { version = "0.30", default-features = false, features = ["crossterm", "layout-cache"] }

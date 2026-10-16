@@ -1,4 +1,4 @@
-//! The window's palettes (src/app.css) and the icons the terminal can show.
+//! The window's palettes (src/app.css).
 
 use ratatui::style::Color;
 
@@ -18,78 +18,7 @@ pub struct Theme {
     pub danger: Color,
     pub accent: Color,
     pub on_accent: Color,
-    pub icons: &'static Icons,
 }
-
-pub struct Icons {
-    pub home: &'static str,
-    pub search: &'static str,
-    pub library: &'static str,
-    pub settings: &'static str,
-    pub liked: &'static str,
-    pub add: &'static str,
-    pub import: &'static str,
-    pub pin: &'static str,
-    pub note: &'static str,
-    pub album: &'static str,
-    pub queue: &'static str,
-    pub volume_high: &'static str,
-    pub volume_low: &'static str,
-    pub muted: &'static str,
-    pub warning: &'static str,
-    pub trash: &'static str,
-    pub rename: &'static str,
-    pub link: &'static str,
-    pub telegram: &'static str,
-    pub window: &'static str,
-}
-
-/// Windows Terminal draws color emoji; the classic console gets plain symbols.
-const EMOJI: Icons = Icons {
-    home: "🏠",
-    search: "🔍",
-    library: "📚",
-    settings: "🔧",
-    liked: "💜",
-    add: "➕",
-    import: "🔗",
-    pin: "📌",
-    note: "🎵",
-    album: "💿",
-    queue: "📜",
-    volume_high: "🔊",
-    volume_low: "🔉",
-    muted: "🔇",
-    warning: "⚠️",
-    trash: "🗑️",
-    rename: "✏️",
-    link: "🌐",
-    telegram: "✈️",
-    window: "🪟",
-};
-
-const PLAIN: Icons = Icons {
-    home: "⌂",
-    search: "⌕",
-    library: "≡",
-    settings: "☼",
-    liked: "♥",
-    add: "+",
-    import: "↗",
-    pin: "•",
-    note: "♪",
-    album: "◎",
-    queue: "☰",
-    volume_high: "◄)",
-    volume_low: "◄",
-    muted: "◄×",
-    warning: "!",
-    trash: "×",
-    rename: "✎",
-    link: "↗",
-    telegram: "➤",
-    window: "□",
-};
 
 const fn rgb(hex: u32) -> Color {
     Color::Rgb((hex >> 16) as u8, (hex >> 8) as u8, hex as u8)
@@ -109,14 +38,13 @@ pub fn parse_hex(hex: &str) -> Option<Color> {
 }
 
 impl Theme {
-    pub fn new(prefs: &UiPrefs, rich_terminal: bool) -> Theme {
+    pub fn new(prefs: &UiPrefs) -> Theme {
         let light = match prefs.theme {
             ThemeChoice::Dark => false,
             ThemeChoice::Light => true,
             ThemeChoice::System => system_prefers_light(),
         };
         let accent = parse_hex(mode::accent_hex(&prefs.accent)).unwrap_or(Color::Reset);
-        let icons = if rich_terminal { &EMOJI } else { &PLAIN };
         if light {
             Theme {
                 bg: rgb(0xe9e9ec),
@@ -131,7 +59,6 @@ impl Theme {
                 danger: rgb(0xc62828),
                 accent,
                 on_accent: rgb(0x16110f),
-                icons,
             }
         } else {
             Theme {
@@ -147,7 +74,6 @@ impl Theme {
                 danger: rgb(0xf2777a),
                 accent,
                 on_accent: rgb(0x16110f),
-                icons,
             }
         }
     }

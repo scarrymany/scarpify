@@ -151,7 +151,7 @@ fn unpack(archive: &[u8], cache_dir: &Path) -> Result<PathBuf, HostError> {
 /// The app is a GUI-subsystem program, which a terminal does not attach to a console by
 /// itself; `cmd /c start /wait` gives it a console parent to attach to and keeps the tab
 /// open exactly as long as the player runs.
-pub fn launch(terminal: &Path, executable: &Path, tab_color: &str) -> io::Result<()> {
+pub fn launch(terminal: &Path, executable: &Path) -> io::Result<()> {
     use std::os::windows::process::CommandExt;
 
     let (Some(folder), Some(name)) = (executable.parent(), executable.file_name()) else {
@@ -161,7 +161,8 @@ pub fn launch(terminal: &Path, executable: &Path, tab_color: &str) -> io::Result
     // would break `start`. The folder goes through `-d`, which it quotes properly, and
     // `start` gets the bare file name, found in that working folder.
     Command::new(terminal)
-        .args(["-w", "new", "--size", WINDOW_SIZE, "--title", "SCARPIFY", "--tabColor", tab_color, "-d"])
+        // No --tabColor: it would lock the tab color, which follows the accent at runtime.
+        .args(["-w", "new", "--size", WINDOW_SIZE, "--title", "SCARPIFY", "-d"])
         .arg(folder)
         .raw_arg(format!("cmd /c start /b /wait {} --tui --hosted", name.to_string_lossy()))
         .spawn()

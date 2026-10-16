@@ -13,7 +13,7 @@ pub enum Console {
 }
 
 #[cfg(windows)]
-pub fn prepare(dirs: &AppDirs, accent_hex: &str) -> io::Result<Console> {
+pub fn prepare(dirs: &AppDirs) -> io::Result<Console> {
     use windows_sys::Win32::System::Console::{AttachConsole, GetConsoleWindow, ATTACH_PARENT_PROCESS};
 
     // SAFETY: plain Win32 calls without pointer arguments.
@@ -27,7 +27,7 @@ pub fn prepare(dirs: &AppDirs, accent_hex: &str) -> io::Result<Console> {
             return Ok(Console::Ready);
         }
     } else if let Some(terminal) = crate::terminal_host::find(&dirs.cache) {
-        crate::terminal_host::launch(&terminal, &std::env::current_exe()?, accent_hex)?;
+        crate::terminal_host::launch(&terminal, &std::env::current_exe()?)?;
         return Ok(Console::Relaunched);
     }
     open_classic_console();
@@ -35,7 +35,7 @@ pub fn prepare(dirs: &AppDirs, accent_hex: &str) -> io::Result<Console> {
 }
 
 #[cfg(not(windows))]
-pub fn prepare(_dirs: &AppDirs, _accent_hex: &str) -> io::Result<Console> {
+pub fn prepare(_dirs: &AppDirs) -> io::Result<Console> {
     Ok(Console::Ready)
 }
 

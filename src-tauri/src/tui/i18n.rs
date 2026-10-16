@@ -126,7 +126,6 @@ pub struct Importer {
 #[derive(Deserialize)]
 pub struct Player {
     pub nothing: String,
-    pub loading: String,
 }
 
 #[derive(Deserialize)]

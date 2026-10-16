@@ -7,12 +7,14 @@ mod app;
 mod art;
 mod console;
 mod i18n;
+mod icon_paths;
+mod paint;
 mod queue;
 mod theme;
 mod ui;
 
 use std::error::Error;
-use std::io::{self, stdout};
+use std::io::{self, stdout, Write};
 use std::sync::mpsc::{self, Receiver};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -36,10 +38,14 @@ const POLL_INTERVAL: Duration = Duration::from_millis(100);
 const BEAT: Duration = Duration::from_millis(180);
 /// Windows Terminal sets this for everything it hosts.
 const WINDOWS_TERMINAL_ENV: &str = "WT_SESSION";
+/// The palette slot borrowed for the tab color; the interface itself only uses true color.
+const TAB_COLOR_SLOT: u8 = 255;
+/// Tab text color for DECAC; Windows Terminal picks a readable one on its own.
+const TAB_TEXT_SLOT: u8 = 15;
 
 pub fn run(dirs: &AppDirs, prefs: UiPrefs) -> Result<(), Box<dyn Error>> {
     dirs.create()?;
-    if let Console::Relaunched = console::prepare(dirs, mode::accent_hex(&prefs.accent))? {
+    if let Console::Relaunched = console::prepare(dirs)? {
         return Ok(());
     }
     let rich_terminal = std::env::var_os(WINDOWS_TERMINAL_ENV).is_some();
@@ -47,12 +53,12 @@ pub fn run(dirs: &AppDirs, prefs: UiPrefs) -> Result<(), Box<dyn Error>> {
     let (tx, rx) = mpsc::channel();
     let http = crate::http_client()?;
     let services = Arc::new(start_services(dirs, &prefs, tx.clone(), http.clone())?);
-    let mut app = App::new(services, tx, Arc::new(dirs.clone()), prefs, rich_terminal)?;
+    let mut app = App::new(services, tx, Arc::new(dirs.clone()), prefs)?;
 
     let mut terminal = ratatui::try_init()?;
     execute!(stdout(), EnableMouseCapture)?;
     let mut art = Art::new(http, rich_terminal);
-    let result = event_loop(&mut terminal, &mut app, &mut art, &rx);
+    let result = event_loop(&mut terminal, &mut app, &mut art, &rx, rich_terminal);
     let _ = execute!(stdout(), DisableMouseCapture);
     ratatui::restore();
     app.shutdown();
@@ -87,13 +93,34 @@ fn start_services(
     })
 }
 
-fn event_loop(terminal: &mut DefaultTerminal, app: &mut App, art: &mut Art, rx: &Receiver<Message>) -> io::Result<()> {
+/// Colors the Windows Terminal tab with the accent: the color goes into a palette slot
+/// (OSC 4), then DECAC paints the tab with that slot.
+fn paint_tab(accent: &str) -> io::Result<()> {
+    let Some(hex) = accent.strip_prefix('#').filter(|hex| hex.len() == 6) else { return Ok(()) };
+    let (r, g, b) = (&hex[0..2], &hex[2..4], &hex[4..6]);
+    let mut out = stdout();
+    write!(out, "\x1b]4;{TAB_COLOR_SLOT};rgb:{r}/{g}/{b}\x1b\\\x1b[2;{TAB_TEXT_SLOT};{TAB_COLOR_SLOT},|")?;
+    out.flush()
+}
+
+fn event_loop(
+    terminal: &mut DefaultTerminal,
+    app: &mut App,
+    art: &mut Art,
+    rx: &Receiver<Message>,
+    rich_terminal: bool,
+) -> io::Result<()> {
     let mut hits = Hits::default();
+    let mut tab_accent = String::new();
     let mut dirty = true;
     let mut beat = 0u64;
     let mut last_beat = Instant::now();
 
     loop {
+        if rich_terminal && tab_accent != app.prefs().accent {
+            tab_accent = app.prefs().accent.clone();
+            paint_tab(mode::accent_hex(&tab_accent))?;
+        }
         if app.repaint {
             // Pictures are only re-sent with a full redraw, e.g. after a menu covered one.
             terminal.clear()?;

@@ -10,6 +10,7 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, Mo
 use ratatui::layout::{Position, Rect};
 
 use super::i18n::{format, Dict};
+use super::paint::Icon;
 use super::queue::{key_of, Queue, TrackKey};
 use super::theme::Theme;
 use crate::audio::devices::{self, OutputDevice};
@@ -196,7 +197,7 @@ pub enum Dialog {
 }
 
 pub struct MenuItem {
-    pub icon: &'static str,
+    pub icon: Option<Icon>,
     pub label: String,
     pub danger: bool,
     pub checked: bool,
@@ -205,7 +206,7 @@ pub struct MenuItem {
 }
 
 impl MenuItem {
-    fn new(icon: &'static str, label: impl Into<String>, action: Action) -> Self {
+    fn new(icon: Option<Icon>, label: impl Into<String>, action: Action) -> Self {
         Self { icon, label: label.into(), danger: false, checked: false, action: Some(action), submenu: Vec::new() }
     }
 }
@@ -369,7 +370,6 @@ pub struct App {
     tx: Sender<Message>,
     dirs: Arc<AppDirs>,
     prefs: UiPrefs,
-    rich_terminal: bool,
     pub dict: Dict,
     pub theme: Theme,
 
@@ -384,6 +384,9 @@ pub struct App {
     liked: HashSet<TrackKey>,
 
     pub queue: Queue,
+    /// The list playback was started from, so only that playlist shows as playing even
+    /// when the track is also in others.
+    playing_from: Option<Source>,
     pub status: Status,
     pub position_ms: u64,
     /// Where the seek bar is being dragged to, shown until the button is released.
@@ -410,17 +413,15 @@ impl App {
         tx: Sender<Message>,
         dirs: Arc<AppDirs>,
         prefs: UiPrefs,
-        rich_terminal: bool,
     ) -> Result<Self> {
         let library = services.library.snapshot()?;
         let mut app = Self {
             dict: Dict::load(&prefs.locale),
-            theme: Theme::new(&prefs, rich_terminal),
+            theme: Theme::new(&prefs),
             services,
             tx,
             dirs,
             prefs,
-            rich_terminal,
             history: History { stack: vec![Route::Home], index: 0 },
             search: SearchState::default(),
             focus: None,
@@ -430,6 +431,7 @@ impl App {
             library,
             liked: HashSet::new(),
             queue: Queue::default(),
+            playing_from: None,
             status: Status::Idle,
             position_ms: 0,
             scrub_ms: None,
@@ -764,10 +766,8 @@ impl App {
             Action::PlayAll(source) => self.play_all(&source),
             Action::ShufflePlay(source) => {
                 let tracks = self.tracks_of(&source);
-                if tracks.is_empty() {
-                    return;
-                }
                 if let Some(track) = self.queue.shuffle_play(&tracks) {
+                    self.playing_from = Some(source);
                     self.load(track);
                 }
             }
@@ -908,7 +908,7 @@ impl App {
     }
 
     fn restyle(&mut self) {
-        self.theme = Theme::new(&self.prefs, self.rich_terminal);
+        self.theme = Theme::new(&self.prefs);
         self.repaint = true;
         self.save_prefs();
     }
@@ -1062,16 +1062,13 @@ impl App {
         }
         let tracks = self.tracks_of(source);
         if let Some(track) = self.queue.play(&tracks, index) {
+            self.playing_from = Some(source.clone());
             self.load(track);
         }
     }
 
     pub fn is_playing_from(&self, source: &Source) -> bool {
-        self.status == Status::Playing
-            && self.queue.current().is_some_and(|current| {
-                let key = key_of(current);
-                self.tracks_of(source).iter().any(|t| key_of(t) == key)
-            })
+        self.status == Status::Playing && self.playing_from.as_ref() == Some(source)
     }
 
     fn play_all(&mut self, source: &Source) {
@@ -1081,12 +1078,14 @@ impl App {
         }
         let tracks = self.tracks_of(source);
         if let Some(track) = self.queue.play(&tracks, 0) {
+            self.playing_from = Some(source.clone());
             self.load(track);
         }
     }
 
     fn enqueue(&mut self, track: Track) {
         if let Some(start) = self.queue.enqueue(track) {
+            self.playing_from = None;
             self.load(start);
         }
     }
@@ -1328,24 +1327,23 @@ impl App {
 
     fn open_track_menu(&mut self, source: &Source, index: usize) {
         let Some(track) = self.track_at(source, index) else { return };
-        let icons = self.theme.icons;
         let text = &self.dict;
         let playlist_id = match source {
             Source::Collection(id) if self.collection(id).is_some_and(|c| c.origin == Origin::User) => Some(id.clone()),
             _ => None,
         };
 
-        let mut playlists = vec![MenuItem::new(icons.add, &text.playlist.new_playlist, Action::AddToNewPlaylist(track.clone()))];
+        let mut playlists = vec![MenuItem::new(Some(Icon::Plus), &text.playlist.new_playlist, Action::AddToNewPlaylist(track.clone()))];
         playlists.extend(
             self.user_playlists()
                 .filter(|p| Some(&p.id) != playlist_id.as_ref())
-                .map(|p| MenuItem::new(icons.note, &p.name, Action::AddToPlaylist(p.id.clone(), track.clone()))),
+                .map(|p| MenuItem::new(None, &p.name, Action::AddToPlaylist(p.id.clone(), track.clone()))),
         );
         let liked = self.is_liked(&track);
         let mut items = vec![
-            MenuItem::new(icons.queue, &text.track.add_to_queue, Action::Enqueue(track.clone())),
+            MenuItem::new(Some(Icon::Queue), &text.track.add_to_queue, Action::Enqueue(track.clone())),
             MenuItem {
-                icon: icons.add,
+                icon: Some(Icon::NotesPlus),
                 label: text.playlist.add_to.clone(),
                 danger: false,
                 checked: false,
@@ -1353,51 +1351,49 @@ impl App {
                 submenu: playlists,
             },
             MenuItem::new(
-                icons.liked,
+                Some(Icon::Heart),
                 if liked { &text.track.unlike } else { &text.track.like },
                 Action::ToggleLike(track.clone()),
             ),
         ];
         if let Some(id) = playlist_id {
-            let mut remove = MenuItem::new(icons.trash, &text.playlist.remove_from, Action::RemoveFromPlaylist(id, track.clone()));
+            let mut remove = MenuItem::new(Some(Icon::Trash), &text.playlist.remove_from, Action::RemoveFromPlaylist(id, track.clone()));
             remove.danger = true;
             items.push(remove);
         }
         if let Some(url) = &track.url {
             let label = format(&text.track.open_source, &[("provider", text.provider(track.provider))]);
-            items.push(MenuItem::new(icons.link, label, Action::OpenUrl(url.clone())));
+            items.push(MenuItem::new(Some(Icon::External), label, Action::OpenUrl(url.clone())));
         }
         self.open_menu(items);
     }
 
     fn open_collection_menu(&mut self, id: &str) {
         let Some(collection) = self.collection(id) else { return };
-        let icons = self.theme.icons;
         let text = &self.dict;
         let id = collection.id.clone();
         let mut items = vec![if collection.pinned {
-            MenuItem::new(icons.pin, &text.playlist.unpin, Action::SetPinned(id.clone(), false))
+            MenuItem::new(Some(Icon::Unpin), &text.playlist.unpin, Action::SetPinned(id.clone(), false))
         } else {
-            MenuItem::new(icons.pin, &text.playlist.pin, Action::SetPinned(id.clone(), true))
+            MenuItem::new(Some(Icon::Pin), &text.playlist.pin, Action::SetPinned(id.clone(), true))
         }];
         if collection.origin == Origin::User {
-            items.push(MenuItem::new(icons.rename, &text.playlist.rename, Action::StartRename(id.clone())));
+            items.push(MenuItem::new(Some(Icon::Pencil), &text.playlist.rename, Action::StartRename(id.clone())));
         }
         if collection.custom_artwork.is_some() {
-            items.push(MenuItem::new(icons.album, &text.playlist.reset_cover, Action::ResetCover(id.clone())));
+            items.push(MenuItem::new(Some(Icon::Restore), &text.playlist.reset_cover, Action::ResetCover(id.clone())));
         }
         let label = if collection.origin == Origin::User { &text.playlist.delete } else { &text.collection.remove };
-        let mut delete = MenuItem::new(icons.trash, label, Action::AskDelete(id));
+        let mut delete = MenuItem::new(Some(Icon::Trash), label, Action::AskDelete(id));
         delete.danger = true;
         items.push(delete);
         self.open_menu(items);
     }
 
     fn open_add_menu(&mut self) {
-        let icons = self.theme.icons;
         let items = vec![
-            MenuItem::new(icons.note, &self.dict.playlist.create, Action::CreatePlaylist),
-            MenuItem::new(icons.import, &self.dict.importer.action, Action::OpenImport),
+            MenuItem::new(Some(Icon::NotesPlus), &self.dict.playlist.create, Action::CreatePlaylist),
+            MenuItem::new(Some(Icon::Link), &self.dict.importer.action, Action::OpenImport),
         ];
         self.open_menu(items);
     }
@@ -1412,11 +1408,11 @@ impl App {
         };
         let mut items = vec![MenuItem {
             checked: !chosen_present,
-            ..MenuItem::new(self.theme.icons.volume_high, default_label, Action::SetDevice(None))
+            ..MenuItem::new(Some(Icon::VolumeHigh), default_label, Action::SetDevice(None))
         }];
         items.extend(self.devices.iter().map(|device| MenuItem {
             checked: chosen.as_deref() == Some(device.id.as_str()),
-            ..MenuItem::new("", &device.name, Action::SetDevice(Some(device.id.clone())))
+            ..MenuItem::new(None, &device.name, Action::SetDevice(Some(device.id.clone())))
         }));
         self.open_menu(items);
     }

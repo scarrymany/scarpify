@@ -1,9 +1,14 @@
-//! Cover artwork: downloaded in the background, shrunk to thumbnails and encoded once per
-//! size. Windows Terminal shows real pictures (Sixel); a classic console gets half blocks.
+//! Pictures on screen: cover artwork (downloaded in the background, or inline covers chosen in
+//! the window) and the interface's own drawn pieces. Each is encoded once per size and
+//! background. Windows Terminal shows them as Sixel; a classic console gets half blocks for
+//! covers and plain symbols instead of drawn pieces.
 
+use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, VecDeque};
+use std::hash::{Hash, Hasher};
 use std::sync::mpsc::{self, Receiver, Sender};
 
+use base64::Engine;
 use image::DynamicImage;
 use ratatui::layout::Rect;
 use ratatui_image::picker::{Picker, ProtocolType};
@@ -11,10 +16,14 @@ use ratatui_image::protocol::Protocol;
 use ratatui_image::Resize;
 use reqwest::Client;
 
-/// Plenty for the largest cover on screen while keeping each decoded image under 80 KB.
-const THUMBNAIL_PX: u32 = 160;
+use super::paint::{self, Rgb, Visual};
+
+/// Plenty for the largest cover on screen while keeping each decoded image small.
+const THUMBNAIL_PX: u32 = 240;
 const MAX_IMAGES: usize = 64;
-const MAX_ENCODED: usize = 160;
+const MAX_ENCODED: usize = 512;
+const DATA_URL_PREFIX: &str = "data:";
+const BASE64_MARKER: &str = ";base64,";
 
 enum Slot {
     Loading,
@@ -22,13 +31,20 @@ enum Slot {
     Failed,
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
+enum Key {
+    /// Hashed: inline covers are data URLs tens of kilobytes long.
+    Cover { url: u64, bg: Rgb, width: u16, height: u16 },
+    Visual { visual: Visual, width: u16, height: u16 },
+}
+
 pub struct Art {
     picker: Picker,
     http: Client,
     images: HashMap<String, Slot>,
     loaded_order: VecDeque<String>,
-    encoded: HashMap<(String, u16, u16), Protocol>,
-    encoded_order: VecDeque<(String, u16, u16)>,
+    encoded: HashMap<Key, Protocol>,
+    encoded_order: VecDeque<Key>,
     results: Receiver<(String, Option<DynamicImage>)>,
     sender: Sender<(String, Option<DynamicImage>)>,
 }
@@ -54,6 +70,11 @@ impl Art {
         }
     }
 
+    /// Whether drawn pieces (icons, corners, sliders) can be shown, not only covers.
+    pub fn pictures(&self) -> bool {
+        self.picker.protocol_type() != ProtocolType::Halfblocks
+    }
+
     /// Picks up finished downloads; returns whether anything new can be drawn.
     pub fn drain(&mut self) -> bool {
         let mut changed = false;
@@ -76,31 +97,61 @@ impl Art {
         changed
     }
 
-    /// The picture for `url` sized to `area`, or `None` while it loads (draw a placeholder).
-    pub fn get(&mut self, url: &str, area: Rect) -> Option<&Protocol> {
-        if area.width == 0 || area.height == 0 {
+    fn pixels(&self, area: Rect) -> (u32, u32) {
+        let font = self.picker.font_size();
+        (area.width as u32 * font.width as u32, area.height as u32 * font.height as u32)
+    }
+
+    /// The cover for `url` with rounded corners on `bg`, or `None` while it loads.
+    pub fn cover(&mut self, url: &str, area: Rect, bg: Rgb) -> Option<&Protocol> {
+        if area.is_empty() {
             return None;
         }
-        let key = (url.to_owned(), area.width, area.height);
+        let key = Key::Cover { url: hash(url), bg, width: area.width, height: area.height };
         if !self.encoded.contains_key(&key) {
             let image = match self.images.get(url) {
-                Some(Slot::Ready(image)) => image.clone(),
+                Some(Slot::Ready(image)) => image,
                 Some(Slot::Loading | Slot::Failed) => return None,
                 None => {
                     self.request(url);
                     return None;
                 }
             };
-            let protocol = self.picker.new_protocol(image, area.as_size(), Resize::Scale(None)).ok()?;
-            self.encoded.insert(key.clone(), protocol);
-            self.encoded_order.push_back(key.clone());
-            if self.encoded_order.len() > MAX_ENCODED {
-                if let Some(oldest) = self.encoded_order.pop_front() {
-                    self.encoded.remove(&oldest);
-                }
-            }
+            let protocol = if self.pictures() {
+                let (width, height) = self.pixels(area);
+                let rounded = paint::cover(image, width, height, bg);
+                self.picker.new_protocol(rounded, area.as_size(), Resize::Fit(None)).ok()?
+            } else {
+                self.picker.new_protocol(image.clone(), area.as_size(), Resize::Scale(None)).ok()?
+            };
+            self.remember(key.clone(), protocol);
         }
         self.encoded.get(&key)
+    }
+
+    /// A drawn piece sized to `area`; `None` on consoles without pictures.
+    pub fn visual(&mut self, visual: Visual, area: Rect) -> Option<&Protocol> {
+        if area.is_empty() || !self.pictures() {
+            return None;
+        }
+        let key = Key::Visual { visual, width: area.width, height: area.height };
+        if !self.encoded.contains_key(&key) {
+            let (width, height) = self.pixels(area);
+            let image = paint::draw(visual, width, height)?;
+            let protocol = self.picker.new_protocol(image, area.as_size(), Resize::Fit(None)).ok()?;
+            self.remember(key.clone(), protocol);
+        }
+        self.encoded.get(&key)
+    }
+
+    fn remember(&mut self, key: Key, protocol: Protocol) {
+        self.encoded.insert(key.clone(), protocol);
+        self.encoded_order.push_back(key);
+        if self.encoded_order.len() > MAX_ENCODED {
+            if let Some(oldest) = self.encoded_order.pop_front() {
+                self.encoded.remove(&oldest);
+            }
+        }
     }
 
     fn request(&mut self, url: &str) {
@@ -109,9 +160,13 @@ impl Art {
         let sender = self.sender.clone();
         let url = url.to_owned();
         tauri::async_runtime::spawn(async move {
-            let bytes = match http.get(&url).send().await.and_then(|r| r.error_for_status()) {
-                Ok(response) => response.bytes().await.ok(),
-                Err(_) => None,
+            let bytes = if url.starts_with(DATA_URL_PREFIX) {
+                inline_bytes(&url)
+            } else {
+                match http.get(&url).send().await.and_then(|r| r.error_for_status()) {
+                    Ok(response) => response.bytes().await.ok().map(|b| b.to_vec()),
+                    Err(_) => None,
+                }
             };
             let image = match bytes {
                 Some(bytes) => tauri::async_runtime::spawn_blocking(move || decode(&bytes)).await.ok().flatten(),
@@ -122,7 +177,30 @@ impl Art {
     }
 }
 
+fn hash(text: &str) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    text.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// Covers picked in the window are stored inline as `data:image/…;base64,…`.
+fn inline_bytes(url: &str) -> Option<Vec<u8>> {
+    let (_, payload) = url.split_once(BASE64_MARKER)?;
+    base64::engine::general_purpose::STANDARD.decode(payload).ok()
+}
+
 fn decode(bytes: &[u8]) -> Option<DynamicImage> {
     let image = image::load_from_memory(bytes).ok()?;
     Some(DynamicImage::ImageRgb8(image.thumbnail(THUMBNAIL_PX, THUMBNAIL_PX).to_rgb8()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_inline_covers() {
+        assert_eq!(inline_bytes("data:image/png;base64,AAEC"), Some(vec![0, 1, 2]));
+        assert_eq!(inline_bytes("https://example.com/cover.jpg"), None);
+    }
 }
