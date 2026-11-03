@@ -29,6 +29,7 @@ export const api = {
   librarySnapshot: () => invoke<LibrarySnapshot>("library_snapshot"),
   libraryImportLegacy: (legacy: object) => invoke<LibrarySnapshot>("library_import_legacy", { legacy }),
   setLiked: (track: Track, liked: boolean) => invoke<void>("library_set_liked", { track, liked }),
+  moveLiked: (from: number, to: number) => invoke<void>("library_move_liked", { from, to }),
   markPlayed: (track: Track) => invoke<void>("library_mark_played", { track }),
   createPlaylist: (name: string) => invoke<SavedCollection>("playlist_create", { name }),
   renamePlaylist: (id: string, name: string) => invoke<void>("playlist_rename", { id, name }),

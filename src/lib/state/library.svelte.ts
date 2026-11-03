@@ -63,6 +63,15 @@ class Library {
     this.#persist(api.setLiked(track, liked));
   }
 
+  moveLiked(from: number, to: number): void {
+    const liked = [...this.liked];
+    const [moved] = liked.splice(from, 1);
+    if (!moved) return;
+    liked.splice(to, 0, moved);
+    this.liked = liked;
+    this.#persist(api.moveLiked(from, to));
+  }
+
   markPlayed(track: Track): void {
     const key = trackKey(track);
     this.recent = [track, ...this.recent.filter((t) => trackKey(t) !== key)].slice(0, RECENT_LIMIT);

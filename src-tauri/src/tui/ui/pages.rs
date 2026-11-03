@@ -482,7 +482,7 @@ fn collection(ui: &mut Ui, area: Rect, saved: Option<&SavedCollection>) {
         }
         return;
     }
-    let playlist_id = saved.filter(|_| is_user).map(|c| c.id.as_str());
+    let playlist_id = saved.map(|c| c.id.as_str());
     track_list(ui, list, tracks, 0, source, playlist_id, true);
 }
 

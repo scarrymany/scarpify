@@ -87,6 +87,15 @@ describe("library", () => {
     expect(calls("collections_reorder")).toEqual([{ ids: ["a", "c", "b"] }]);
   });
 
+  it("reorders liked tracks immediately and persists the move", async () => {
+    await library.init();
+    const [first, second, third] = [makeTrack(1), makeTrack(2), makeTrack(3)];
+    library.liked = [first, second, third];
+    library.moveLiked(2, 0);
+    expect(library.liked).toEqual([third, first, second]);
+    expect(calls("library_move_liked")).toEqual([{ from: 2, to: 0 }]);
+  });
+
   it("reloads the library when a write fails", async () => {
     await library.init();
     invoke.mockImplementationOnce(async () => {

@@ -26,11 +26,15 @@
     tracks: Track[];
     showAlbum?: boolean;
     showHeader?: boolean;
-    /** Set for the user's own playlists: rows can be removed and dragged into a new order. */
+    /** The saved playlist shown, left out of the "add to playlist" menu. */
     playlistId?: string;
+    /** Makes rows draggable into a new order. */
+    onmove?: (from: number, to: number) => void;
+    /** Adds a "remove from this playlist" action to each row. */
+    onremove?: (track: Track) => void;
   }
 
-  let { tracks, showAlbum = true, showHeader = true, playlistId }: Props = $props();
+  let { tracks, showAlbum = true, showHeader = true, playlistId, onmove, onremove }: Props = $props();
 
   /** Enough rows to fill the screen in the first frame; the rest arrive in later frames. */
   const FIRST_BATCH = 40;
@@ -88,13 +92,8 @@
       { label: t.playlist.addTo, icon: MusicNotesPlus, submenu: playlists },
       { label: liked ? t.track.unlike : t.track.like, icon: Heart, action: () => library.toggleLike(track) },
     ];
-    if (playlistId) {
-      items.push({
-        label: t.playlist.removeFrom,
-        icon: Trash,
-        danger: true,
-        action: () => library.removeTrack(playlistId, track),
-      });
+    if (onremove) {
+      items.push({ label: t.playlist.removeFrom, icon: Trash, danger: true, action: () => onremove(track) });
     }
     if (track.url) {
       const url = track.url;
@@ -112,7 +111,7 @@
   class="list"
   class:no-album={!showAlbum}
   role="list"
-  use:sortable={{ onmove: (from, to) => playlistId && library.moveTrack(playlistId, from, to), disabled: !playlistId }}
+  use:sortable={{ onmove: (from, to) => onmove?.(from, to), disabled: !onmove }}
 >
   {#if showHeader}
     <div class="row header" aria-hidden="true">
@@ -131,7 +130,7 @@
       class="row"
       class:active
       role="listitem"
-      data-sortable={playlistId ? "" : undefined}
+      data-sortable={onmove ? "" : undefined}
       ondblclick={() => play(index)}
       oncontextmenu={(event) => menu.show(event, trackActions(track))}
       onpointerenter={() => player.prefetchSoon(track)}

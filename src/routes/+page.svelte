@@ -126,6 +126,7 @@
             tracks={library.liked}
             emptyTitle={i18n.t.collection.likedEmptyTitle}
             emptyBody={i18n.t.collection.likedEmptyBody}
+            onmove={(from, to) => library.moveLiked(from, to)}
           />
         {:else if route.name === "collection" && collection}
           <CollectionView {collection} />

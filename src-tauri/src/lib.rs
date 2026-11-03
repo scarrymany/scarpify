@@ -157,6 +157,11 @@ async fn library_set_liked(track: Track, liked: bool, state: State<'_, AppState>
 }
 
 #[tauri::command]
+async fn library_move_liked(from: usize, to: usize, state: State<'_, AppState>) -> Result<()> {
+    state.library.move_liked(from, to)
+}
+
+#[tauri::command]
 async fn library_mark_played(track: Track, state: State<'_, AppState>) -> Result<()> {
     state.library.mark_played(&track)
 }
@@ -345,6 +350,7 @@ pub fn run() {
             library_snapshot,
             library_import_legacy,
             library_set_liked,
+            library_move_liked,
             library_mark_played,
             playlist_create,
             playlist_rename,

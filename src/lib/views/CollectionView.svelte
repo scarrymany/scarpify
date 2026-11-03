@@ -23,9 +23,11 @@
     tracks?: Track[];
     emptyTitle?: string;
     emptyBody?: string;
+    /** Reorders the plain track list; saved collections reorder through the library. */
+    onmove?: (from: number, to: number) => void;
   }
 
-  let { collection, title = "", tracks: plainTracks = [], emptyTitle = "", emptyBody }: Props = $props();
+  let { collection, title = "", tracks: plainTracks = [], emptyTitle = "", emptyBody, onmove: moveTracks }: Props = $props();
 
   const t = $derived(i18n.t);
   const isUser = $derived(collection?.origin === "user");
@@ -58,6 +60,14 @@
     if (!renaming || !collection) return;
     if (save) library.rename(collection.id, draftName);
     ui.renaming = null;
+  }
+
+  function moveTrack(from: number, to: number) {
+    if (collection) library.moveTrack(collection.id, from, to);
+  }
+
+  function removeTrack(track: Track) {
+    if (collection) library.removeTrack(collection.id, track);
   }
 
   function playAll() {
@@ -163,7 +173,13 @@
     </div>
   {:else}
     <div class="tracks">
-      <TrackList {tracks} showAlbum={hasAlbums} playlistId={isUser ? collection?.id : undefined} />
+      <TrackList
+        {tracks}
+        showAlbum={hasAlbums}
+        playlistId={collection?.id}
+        onmove={collection ? moveTrack : moveTracks}
+        onremove={collection ? removeTrack : undefined}
+      />
     </div>
   {/if}
 </div>

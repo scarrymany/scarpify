@@ -126,6 +126,11 @@ mockIPC(
         if (args.liked) library.liked.unshift(track);
         return null;
       }
+      case "library_move_liked": {
+        const [moved] = library.liked.splice(args.from, 1);
+        library.liked.splice(args.to, 0, moved);
+        return null;
+      }
       case "library_mark_played": {
         const track = args.track as Track;
         library.recent = [track, ...library.recent.filter((t) => key(t) !== key(track))].slice(0, 24);

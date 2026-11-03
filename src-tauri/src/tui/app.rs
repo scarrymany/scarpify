@@ -1329,7 +1329,7 @@ impl App {
         let Some(track) = self.track_at(source, index) else { return };
         let text = &self.dict;
         let playlist_id = match source {
-            Source::Collection(id) if self.collection(id).is_some_and(|c| c.origin == Origin::User) => Some(id.clone()),
+            Source::Collection(id) if self.collection(id).is_some() => Some(id.clone()),
             _ => None,
         };
 

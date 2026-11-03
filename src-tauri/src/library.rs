@@ -335,6 +335,32 @@ impl Library {
         })
     }
 
+    /// Moves a liked track. Liked tracks are listed newest first, so the stamps are
+    /// rewritten downwards from the newest one to match the new order.
+    pub fn move_liked(&self, from: usize, to: usize) -> Result<()> {
+        let mut db = self.lock();
+        let tx = db.transaction()?;
+        let mut keys: Vec<String> = tx
+            .prepare("SELECT track_key FROM liked ORDER BY added_at DESC")?
+            .query_map([], |row| row.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        if from >= keys.len() || to >= keys.len() {
+            return Ok(());
+        }
+        let key = keys.remove(from);
+        keys.insert(to, key);
+
+        let newest = next_stamp(&tx, "SELECT MAX(added_at) FROM liked")?;
+        {
+            let mut update = tx.prepare("UPDATE liked SET added_at = ?2 WHERE track_key = ?1")?;
+            for (offset, key) in keys.iter().enumerate() {
+                update.execute(params![key, newest - offset as i64])?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
     /// Imports the browser-storage library of older builds; safe to run more than once.
     pub fn import_legacy(&self, legacy: &LegacyLibrary) -> Result<()> {
         let mut db = self.lock();
@@ -378,10 +404,11 @@ impl Library {
         Ok(())
     }
 
+    /// Edits the track order of any saved collection, imported ones included.
     fn reorder_with(&self, id: &str, change: impl FnOnce(&mut Vec<String>)) -> Result<SavedCollection> {
         let mut db = self.lock();
         let tx = db.transaction()?;
-        ensure_user_playlist(&tx, id)?;
+        origin_of(&tx, id)?;
         let mut keys: Vec<String> = tx
             .prepare("SELECT track_key FROM collection_tracks WHERE collection_id = ?1 ORDER BY position")?
             .query_map(params![id], |row| row.get(0))?
@@ -468,15 +495,17 @@ fn write_positions(tx: &Transaction, id: &str, keys: &[String]) -> Result<()> {
     Ok(())
 }
 
+fn origin_of(tx: &Transaction, id: &str) -> Result<String> {
+    tx.query_row("SELECT origin FROM collections WHERE id = ?1", params![id], |row| row.get(0))
+        .optional()?
+        .ok_or_else(|| Error::Unavailable("playlist not found".into()))
+}
+
 fn ensure_user_playlist(tx: &Transaction, id: &str) -> Result<()> {
-    let origin: Option<String> = tx
-        .query_row("SELECT origin FROM collections WHERE id = ?1", params![id], |row| row.get(0))
-        .optional()?;
-    match origin.as_deref() {
-        Some("user") => Ok(()),
-        Some(_) => Err(Error::Unavailable("imported playlists are read-only".into())),
-        None => Err(Error::Unavailable("playlist not found".into())),
+    if origin_of(tx, id)? != "user" {
+        return Err(Error::Unavailable("tracks cannot be added to imported playlists".into()));
     }
+    Ok(())
 }
 
 /// Current time, nudged past the newest stored stamp so rapid actions keep their order.
@@ -608,7 +637,47 @@ mod tests {
         assert_eq!(second.id, first.id);
         assert_eq!(second.tracks.len(), 2);
         assert_eq!(second.custom_artwork.as_deref(), Some("data:custom"));
-        assert!(library.add_tracks(&second.id, &[track(3)]).is_err(), "imports are read-only");
+        assert!(library.add_tracks(&second.id, &[track(3)]).is_err(), "imports take no new tracks");
+    }
+
+    #[test]
+    fn imported_playlists_can_be_reordered_and_trimmed() {
+        let library = Library::in_memory().unwrap();
+        let collection = Collection {
+            kind: CollectionKind::Playlist,
+            name: "Hits".into(),
+            owner: None,
+            artwork: None,
+            provider: Provider::Spotify,
+            tracks: vec![track(1), track(2), track(3)],
+        };
+        let id = library.save_import(&collection, "link").unwrap().id;
+
+        let playlist = library.move_track(&id, 0, 2).unwrap();
+        assert_eq!(titles(&playlist), ["Track 2", "Track 3", "Track 1"]);
+
+        let playlist = library.remove_track(&id, &track(3)).unwrap();
+        assert_eq!(titles(&playlist), ["Track 2", "Track 1"]);
+
+        assert!(library.move_track("missing", 0, 1).is_err());
+    }
+
+    #[test]
+    fn liked_tracks_can_be_reordered() {
+        let library = Library::in_memory().unwrap();
+        for n in 1..=3 {
+            library.set_liked(&track(n), true).unwrap();
+        }
+        let liked = |library: &Library| -> Vec<String> {
+            library.snapshot().unwrap().liked.into_iter().map(|t| t.title).collect()
+        };
+        assert_eq!(liked(&library), ["Track 3", "Track 2", "Track 1"]);
+
+        library.move_liked(2, 0).unwrap();
+        assert_eq!(liked(&library), ["Track 1", "Track 3", "Track 2"]);
+
+        library.set_liked(&track(4), true).unwrap();
+        assert_eq!(liked(&library), ["Track 4", "Track 1", "Track 3", "Track 2"], "new likes still go on top");
     }
 
     #[test]
