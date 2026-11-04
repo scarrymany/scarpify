@@ -1,6 +1,8 @@
 mod audio;
 mod error;
 mod library;
+#[cfg(windows)]
+mod media_session;
 mod mode;
 mod model;
 mod presence;
@@ -95,6 +97,12 @@ fn update_presence(now_playing: Option<NowPlaying>, state: State<'_, AppState>) 
         Some(now_playing) => state.presence.show(now_playing),
         None => state.presence.hide(),
     }
+}
+
+#[cfg(windows)]
+#[tauri::command]
+fn update_media_session(state: Option<media_session::MediaState>, session: State<'_, media_session::MediaSession>) {
+    session.update(state);
 }
 
 #[tauri::command]
@@ -317,6 +325,12 @@ pub fn run() {
                 app.manage(tray);
             }
 
+            #[cfg(windows)]
+            if let Some(window) = app.get_webview_window(tray::MAIN_WINDOW) {
+                let session = media_session::MediaSession::spawn(app.handle().clone(), window.hwnd()?.0);
+                app.manage(session);
+            }
+
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 handle.state::<AppState>().sources.warm_up().await;
@@ -347,6 +361,8 @@ pub fn run() {
             set_audio_device,
             update_presence,
             set_presence_enabled,
+            #[cfg(windows)]
+            update_media_session,
             library_snapshot,
             library_import_legacy,
             library_set_liked,

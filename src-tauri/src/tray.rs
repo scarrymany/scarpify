@@ -12,7 +12,7 @@ const EN: &str = include_str!("../../src/lib/i18n/en.json");
 const RU: &str = include_str!("../../src/lib/i18n/ru.json");
 const UK: &str = include_str!("../../src/lib/i18n/uk.json");
 
-const MAIN_WINDOW: &str = "main";
+pub const MAIN_WINDOW: &str = "main";
 const TRAY_ID: &str = "main";
 const TOOLTIP: &str = "SCARPIFY";
 const OPEN_ITEM: &str = "open";

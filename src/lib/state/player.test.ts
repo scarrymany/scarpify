@@ -158,6 +158,35 @@ describe("Discord presence", () => {
   });
 });
 
+describe("Windows media session", () => {
+  it("keeps a paused track and reports its state", () => {
+    const track = makeTrack(2);
+    player.playTracks([track]);
+    emit({ kind: "playing", positionMs: 0 });
+    emit({ kind: "paused", positionMs: 5_000 });
+
+    const updates = commands("update_media_session").map(([args]) => (args as { state: unknown }).state);
+    expect(updates[0]).toMatchObject({ title: track.title, playing: true, positionMs: 0 });
+    expect(updates.at(-1)).toMatchObject({ title: track.title, playing: false, positionMs: 5_000 });
+  });
+
+  it("follows the session's buttons", () => {
+    player.playTracks(makeTracks(2));
+    emit({ kind: "playing", positionMs: 20_000 });
+
+    player.control({ action: "play" });
+    expect(commands("resume")).toHaveLength(0);
+    player.control({ action: "pause" });
+    expect(commands("pause")).toHaveLength(1);
+
+    player.control({ action: "seekBy", offsetMs: -10_000 });
+    expect(commands("seek").at(-1)).toEqual([{ positionMs: 10_000 }]);
+
+    player.control({ action: "next" });
+    expect(player.index).toBe(1);
+  });
+});
+
 describe("queue editing", () => {
   it("reorders and shuffles only what comes after the current track", () => {
     const tracks = makeTracks(12);

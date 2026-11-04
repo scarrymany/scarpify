@@ -1,4 +1,4 @@
-import { api, errorMessage, onPlayerEvent } from "$lib/api";
+import { api, errorMessage, onPlayerEvent, type MediaControl } from "$lib/api";
 import { format, i18n } from "$lib/i18n/index.svelte";
 import { trackKey, type PlayerEvent, type Track } from "$lib/types";
 import { library } from "./library.svelte";
@@ -53,10 +53,28 @@ class Player {
     await api.setVolume(this.#effectiveVolume());
   }
 
-  /** Discord shows the track while it plays; pausing or stopping hides it, like Spotify. */
-  #syncPresence(): void {
+  /**
+   * Tells Discord and the Windows media session what is playing. Discord shows the track
+   * only while it plays, like Spotify; the media session keeps a paused track.
+   */
+  #syncNowPlaying(): void {
     const track = this.current;
-    if (this.status !== "playing" || !track) {
+    const positionMs = Math.round(this.positionMs);
+    const playing = this.status === "playing";
+    void api.updateMediaSession(
+      track
+        ? {
+            title: track.title,
+            artists: track.artists,
+            album: track.album,
+            artwork: track.artwork,
+            durationMs: track.durationMs,
+            positionMs,
+            playing,
+          }
+        : null,
+    );
+    if (!playing || !track) {
       void api.updatePresence(null);
       return;
     }
@@ -66,9 +84,36 @@ class Player {
       album: track.album,
       artwork: track.artwork,
       url: track.url,
-      positionMs: Math.round(this.positionMs),
+      positionMs,
       durationMs: track.durationMs,
     });
+  }
+
+  /** Buttons pressed outside the window: media keys, the Windows flyout, overlays. */
+  control(control: MediaControl): void {
+    switch (control.action) {
+      case "play":
+        if (this.status !== "playing") this.toggle();
+        break;
+      case "pause":
+        if (this.status === "playing") this.toggle();
+        break;
+      case "toggle":
+        this.toggle();
+        break;
+      case "next":
+        this.next();
+        break;
+      case "previous":
+        this.previous();
+        break;
+      case "seek":
+        this.seek(control.positionMs);
+        break;
+      case "seekBy":
+        this.seek(this.positionMs + control.offsetMs);
+        break;
+    }
   }
 
   playTracks(tracks: Track[], startIndex = 0): void {
@@ -153,7 +198,7 @@ class Player {
     const clamped = Math.max(0, Math.min(positionMs, this.durationMs || positionMs));
     this.#setPosition(clamped);
     void api.seek(clamped);
-    if (this.status === "playing") this.#syncPresence();
+    if (this.status !== "loading") this.#syncNowPlaying();
   }
 
   setVolume(volume: number): void {
@@ -231,13 +276,13 @@ class Player {
         this.#engineLoaded = true;
         this.status = "playing";
         this.#setPosition(event.positionMs);
-        this.#syncPresence();
+        this.#syncNowPlaying();
         if (this.upcoming[0]) this.prefetch(this.upcoming[0]);
         break;
       case "paused":
         this.status = "paused";
         this.#setPosition(event.positionMs);
-        this.#syncPresence();
+        this.#syncNowPlaying();
         break;
       case "progress":
         this.#setPosition(event.positionMs);
@@ -248,7 +293,7 @@ class Player {
         else if (this.index + 1 < this.queue.length || this.repeat === "all") this.next();
         else {
           this.status = "paused";
-          this.#syncPresence();
+          this.#syncNowPlaying();
         }
         break;
       case "error":

@@ -4,6 +4,7 @@ import type { LibrarySnapshot, OutputDevice, PlayerEvent, ProviderResult, SavedC
 
 const PLAYER_EVENT = "player";
 const TRAY_TOGGLE_EVENT = "tray-toggle";
+const MEDIA_CONTROL_EVENT = "media-control";
 
 export const api = {
   searchYoutube: (query: string) => invoke<ProviderResult>("search_youtube", { query }),
@@ -19,6 +20,7 @@ export const api = {
   audioDevices: () => invoke<OutputDevice[]>("audio_devices"),
   setAudioDevice: (device: string | null) => invoke<void>("set_audio_device", { device }),
   updatePresence: (nowPlaying: NowPlaying | null) => invoke<void>("update_presence", { nowPlaying }),
+  updateMediaSession: (state: MediaSessionState | null) => invoke<void>("update_media_session", { state }),
   setPresenceEnabled: (enabled: boolean) => invoke<void>("set_presence_enabled", { enabled }),
   /** `false` when no Windows Terminal is available yet; see `installTerminal`. */
   openTerminalMode: (prefs: TerminalPrefs) => invoke<boolean>("open_terminal_mode", { prefs }),
@@ -66,6 +68,27 @@ export interface NowPlaying {
   url: string | null;
   positionMs: number;
   durationMs: number | null;
+}
+
+/** The Windows media session, read by the media flyout and overlays such as SCARP ISLAND. */
+export interface MediaSessionState {
+  title: string;
+  artists: string[];
+  album: string | null;
+  artwork: string | null;
+  durationMs: number | null;
+  positionMs: number;
+  playing: boolean;
+}
+
+/** A button pressed in the Windows media session: media keys, the flyout or an overlay. */
+export type MediaControl =
+  | { action: "play" | "pause" | "toggle" | "next" | "previous" }
+  | { action: "seek"; positionMs: number }
+  | { action: "seekBy"; offsetMs: number };
+
+export function onMediaControl(handler: (control: MediaControl) => void): Promise<UnlistenFn> {
+  return listen<MediaControl>(MEDIA_CONTROL_EVENT, (event) => handler(event.payload));
 }
 
 /** "Play / Pause" picked in the tray icon's menu. */
