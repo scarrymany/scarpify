@@ -8,9 +8,11 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use discord_rich_presence::activity::{Activity, ActivityType, Assets, StatusDisplayType, Timestamps};
+use discord_rich_presence::activity::{Activity, ActivityType, Assets, Button, StatusDisplayType, Timestamps};
 use discord_rich_presence::{DiscordIpc, DiscordIpcClient};
 use serde::Deserialize;
+
+use crate::REPOSITORY_URL;
 
 /// Application registered in the Discord Developer Portal; its name and icon are what
 /// Discord shows as "Listening to SCARPIFY". Forks can point to their own application
@@ -27,6 +29,7 @@ const RECONNECT_INTERVAL: Duration = Duration::from_secs(15);
 /// Drawn as a badge in the corner of the cover.
 const BADGE_IMAGE: &str = "https://cdn.discordapp.com/app-assets/1557570425213423616/1557581447848525865.png";
 const BADGE_TEXT: &str = "SCARPIFY";
+const REPOSITORY_BUTTON_LABEL: &str = "GitHub";
 /// Discord rejects activity strings outside 2..=128 characters.
 const MAX_TEXT_CHARS: usize = 128;
 const MIN_TEXT_CHARS: usize = 2;
@@ -222,7 +225,8 @@ fn activity(now_playing: &NowPlaying, started_at_ms: i64) -> Activity<'_> {
         .details(discord_text(&now_playing.title))
         .state(discord_text(&now_playing.artists.join(", ")))
         .timestamps(timestamps)
-        .assets(assets);
+        .assets(assets)
+        .buttons(vec![Button::new(REPOSITORY_BUTTON_LABEL, REPOSITORY_URL)]);
     if let Some(url) = now_playing.url.as_deref().filter(|u| u.starts_with("https://")) {
         activity = activity.details_url(url);
     }
@@ -276,6 +280,7 @@ mod tests {
         assert_eq!(json["assets"]["small_image"], BADGE_IMAGE);
         assert_eq!(json["assets"]["small_text"], BADGE_TEXT);
         assert_eq!(json["details_url"], "https://soundcloud.com/daftpunk/get-lucky");
+        assert_eq!(json["buttons"], serde_json::json!([{ "label": "GitHub", "url": REPOSITORY_URL }]));
     }
 
     #[test]

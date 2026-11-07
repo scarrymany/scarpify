@@ -32,7 +32,6 @@ const RESTART_THRESHOLD_MS: u64 = 3_000;
 const PREFETCH_TTL: Duration = Duration::from_secs(10 * 60);
 const VOLUME_STEP: f32 = 0.05;
 const SEEK_STEP_MS: i64 = 5_000;
-pub const REPOSITORY_URL: &str = "https://github.com/scarrymany/scarpify";
 pub const AUTHOR_URL: &str = "https://t.me/yeet17";
 
 pub struct Services {

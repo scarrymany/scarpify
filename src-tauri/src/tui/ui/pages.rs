@@ -9,7 +9,8 @@ use super::{clock, display_width, ellipsize, pill_width, segment_width, Fallback
 use crate::library::{Origin, SavedCollection};
 use crate::model::{CollectionKind, Provider, Track};
 use crate::mode::{Theme as ThemeChoice, ACCENTS};
-use crate::tui::app::{Action, Drag, Filter, Hit, Route, ScrollId, Source, Status, REPOSITORY_URL};
+use crate::tui::app::{Action, Drag, Filter, Hit, Route, ScrollId, Source, Status};
+use crate::REPOSITORY_URL;
 use crate::tui::i18n::{format, LOCALES};
 use crate::tui::paint::{self, Icon, Visual};
 use crate::tui::queue::key_of;

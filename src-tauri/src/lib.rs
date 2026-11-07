@@ -31,6 +31,7 @@ use sources::Sources;
 const PLAYER_EVENT: &str = "player";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const LIBRARY_FILE: &str = "library.db";
+pub(crate) const REPOSITORY_URL: &str = "https://github.com/scarrymany/scarpify";
 
 struct AppState {
     sources: Sources,
