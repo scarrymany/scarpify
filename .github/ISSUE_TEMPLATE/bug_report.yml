@@ -23,7 +23,7 @@ body:
     attributes:
       label: SCARPIFY version
       description: Settings, About.
-      placeholder: 0.2.4
+      placeholder: 0.2.5
     validations:
       required: true
   - type: input
